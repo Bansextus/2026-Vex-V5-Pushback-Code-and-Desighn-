@@ -25,6 +25,18 @@ pros::Motor outtake(9, pros::E_MOTOR_GEAR_BLUE, false);
 // ======================================================
 pros::Controller master(pros::E_CONTROLLER_MASTER);
 
+namespace {
+void gps_screen_task_fn(void*) {
+    while (true) {
+        const auto position = gps.get_position();
+        pros::screen::print(TEXT_MEDIUM, 1, "GPS X: %.2f m", position.x);
+        pros::screen::print(TEXT_MEDIUM, 2, "GPS Y: %.2f m", position.y);
+        pros::screen::print(TEXT_MEDIUM, 3, "GPS H: %.2f deg", gps.get_heading() / 100.0);
+        pros::delay(200);
+    }
+}
+}
+
 // ======================================================
 // GPS Sensor
 // ======================================================
@@ -72,9 +84,14 @@ void outtake_off() {
 // ======================================================
 void initialize() {
     pros::lcd::initialize();
+<<<<<<< Updated upstream
     pros::lcd::set_text(1, "LemLib Initialized");
 
     chassis.calibrate(); // GPS calibration
+=======
+    imu.reset(true); 
+    static pros::Task gps_screen_task(gps_screen_task_fn, nullptr, "gps-screen");
+>>>>>>> Stashed changes
 }
 
 // ======================================================
@@ -111,7 +128,24 @@ void opcontrol() {
         } else if (master.get_digital(DIGITAL_L2)) {
             intake_reverse();
         } else {
+<<<<<<< Updated upstream
             intake_off();
+=======
+            intake_left.brake();
+            intake_right.brake();
+        }
+
+        // --- OUTTAKE CONTROL (R1/R2) ---
+        if (master.get_digital(DIGITAL_R1)) {
+            outtake_left.move(127);
+            outtake_right.move(127);
+        } else if (master.get_digital(DIGITAL_R2)) {
+            outtake_left.move(-127);
+            outtake_right.move(-127);
+        } else {
+            outtake_left.brake();
+            outtake_right.brake();
+>>>>>>> Stashed changes
         }
 
         pros::delay(20);
