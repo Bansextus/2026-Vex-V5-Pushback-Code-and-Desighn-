@@ -1,31 +1,34 @@
 #include "main.h"
-#include "hot-cold-asset/asset.hpp"
-#include "lemlib/api.hpp"
+#include <cstddef>
 
+#include <atomic>
 #include <cstdint>
 #include <vector>
 
-ASSET(jerkbot_bmp);
+extern const unsigned char jerkbot_bmp[];
+extern const unsigned int jerkbot_bmp_len;
+extern const unsigned char loading_icon_bmp[];
+extern const unsigned int loading_icon_bmp_len;
 
 // ======================================================
 // Motors
 // ======================================================
 
 // Drivetrain motors
-pros::MotorGroup left_motors({pros::Motor(1, pros::E_MOTOR_GEAR_BLUE, false),
-                              pros::Motor(2, pros::E_MOTOR_GEAR_BLUE, true),
-                              pros::Motor(3, pros::E_MOTOR_GEAR_BLUE, false)});
-pros::MotorGroup right_motors({pros::Motor(4, pros::E_MOTOR_GEAR_BLUE, true),
-                               pros::Motor(5, pros::E_MOTOR_GEAR_BLUE, false),
-                               pros::Motor(6, pros::E_MOTOR_GEAR_BLUE, true)});
+pros::Motor left_front(1, pros::v5::MotorGears::blue);
+pros::Motor left_middle(-2, pros::v5::MotorGears::blue);
+pros::Motor left_back(3, pros::v5::MotorGears::blue);
+pros::Motor right_front(4, pros::v5::MotorGears::blue);
+pros::Motor right_middle(-5, pros::v5::MotorGears::blue);
+pros::Motor right_back(6, pros::v5::MotorGears::blue);
 
 // Intake motors
-pros::Motor intake_left(7, pros::E_MOTOR_GEAR_BLUE, false);
-pros::Motor intake_right(8, pros::E_MOTOR_GEAR_BLUE, true);
+pros::Motor intake_left(7, pros::v5::MotorGears::blue);
+pros::Motor intake_right(-8, pros::v5::MotorGears::blue);
 
 // Outtake motors
-pros::Motor outtake_left(9, pros::E_MOTOR_GEAR_BLUE, false);
-pros::Motor outtake_right(12, pros::E_MOTOR_GEAR_BLUE, true);
+pros::Motor outtake_left(9, pros::v5::MotorGears::blue);
+pros::Motor outtake_right(-12, pros::v5::MotorGears::blue);
 
 // ======================================================
 // Controller
@@ -37,9 +40,14 @@ pros::Controller master(pros::E_CONTROLLER_MASTER);
 // ======================================================
 pros::Gps gps(10, 0, 0); // Removed status flag
 
+bool six_wheel_drive_enabled = true;
+std::atomic<bool> gps_mode_enabled {false};
+
 namespace {
 constexpr std::int16_t kImageX = 0;
 constexpr std::int16_t kImageY = 80;
+constexpr std::int16_t kLoadingX = 0;
+constexpr std::int16_t kLoadingY = 0;
 
 std::uint16_t read_u16(const std::uint8_t* data, std::size_t offset) {
     return static_cast<std::uint16_t>(data[offset]) |
@@ -53,12 +61,11 @@ std::uint32_t read_u32(const std::uint8_t* data, std::size_t offset) {
            (static_cast<std::uint32_t>(data[offset + 3]) << 24);
 }
 
-bool draw_bmp_asset(const asset& bmp, std::int16_t x0, std::int16_t y0) {
-    if (bmp.buf == nullptr || bmp.size < 54) {
+bool draw_bmp_asset(const std::uint8_t* data, std::size_t size, std::int16_t x0, std::int16_t y0) {
+    if (data == nullptr || size < 54) {
         return false;
     }
 
-    const auto* data = bmp.buf;
     if (data[0] != 'B' || data[1] != 'M') {
         return false;
     }
@@ -91,7 +98,7 @@ bool draw_bmp_asset(const asset& bmp, std::int16_t x0, std::int16_t y0) {
     const std::uint32_t row_stride = ((width * bytes_per_pixel + 3) / 4) * 4;
     const std::uint64_t required = static_cast<std::uint64_t>(data_offset) +
                                    static_cast<std::uint64_t>(row_stride) * height;
-    if (required > bmp.size) {
+    if (required > size) {
         return false;
     }
 
@@ -146,32 +153,40 @@ bool draw_bmp_asset(const asset& bmp, std::int16_t x0, std::int16_t y0) {
     return true;
 }
 
+void show_loading_screen() {
+    pros::screen::erase();
+    draw_bmp_asset(reinterpret_cast<const std::uint8_t*>(loading_icon_bmp),
+                   static_cast<std::size_t>(loading_icon_bmp_len),
+                   kLoadingX,
+                   kLoadingY);
+    pros::delay(1200);
+    pros::screen::erase();
+}
+
 void gps_screen_task_fn(void*) {
-    const bool image_ok = draw_bmp_asset(jerkbot_bmp, kImageX, kImageY);
+    const bool image_ok = draw_bmp_asset(reinterpret_cast<const std::uint8_t*>(jerkbot_bmp),
+                                         static_cast<std::size_t>(jerkbot_bmp_len),
+                                         kImageX,
+                                         kImageY);
     if (!image_ok) {
         pros::screen::print(TEXT_MEDIUM, 4, "Image load failed");
     }
 
     while (true) {
-        const auto position = gps.get_position();
-        pros::screen::print(TEXT_MEDIUM, 1, "GPS X: %.2f m", position.x);
-        pros::screen::print(TEXT_MEDIUM, 2, "GPS Y: %.2f m", position.y);
-        pros::screen::print(TEXT_MEDIUM, 3, "GPS H: %.2f deg", gps.get_heading() / 100.0);
+        if (gps_mode_enabled.load()) {
+            const auto position = gps.get_position();
+            pros::screen::print(TEXT_MEDIUM, 1, "GPS X: %.2f m", position.x);
+            pros::screen::print(TEXT_MEDIUM, 2, "GPS Y: %.2f m", position.y);
+            pros::screen::print(TEXT_MEDIUM, 3, "GPS H: %.2f deg", gps.get_heading() / 100.0);
+        } else {
+            pros::screen::print(TEXT_MEDIUM, 1, "GPS MODE: OFF   ");
+            pros::screen::print(TEXT_MEDIUM, 2, "               ");
+            pros::screen::print(TEXT_MEDIUM, 3, "               ");
+        }
         pros::delay(200);
     }
 }
 }
-
-// ======================================================
-// LemLib Setup
-// ======================================================
-lemlib::Drivetrain drivetrain(&left_motors, &right_motors, 12.75, 3.25, 450);
-lemlib::OdomSensors sensors(nullptr, nullptr, nullptr, nullptr, &gps);
-
-lemlib::ControllerSettings linearController(10, 0, 30, 0, 1, 500, 3);
-lemlib::ControllerSettings angularController(8, 0, 40, 0, 1, 500, 3);
-
-lemlib::Chassis chassis(&drivetrain, linearController, angularController, sensors);
 
 // ======================================================
 // Utility Functions
@@ -213,7 +228,7 @@ void initialize() {
     pros::lcd::initialize();
     pros::lcd::set_text(1, "LemLib Initialized");
 
-    chassis.calibrate(); // GPS calibration
+    show_loading_screen();
     static pros::Task gps_screen_task(gps_screen_task_fn, nullptr, "gps-screen");
 }
 
@@ -221,18 +236,7 @@ void initialize() {
 // Autonomous
 // ======================================================
 void autonomous() {
-    chassis.setPose(0, 0, 0);
-    chassis.moveToPoint(24, 0, 2000);
-    intake_on();
-    pros::delay(1500);
-    intake_off();
-    chassis.moveToPoint(36, 18, 2500);
-    chassis.turnToHeading(90, 1000);
-    outtake_on();
-    pros::delay(1200);
-    outtake_off();
-    chassis.moveToPoint(0, 0, 3000);
-    chassis.turnToHeading(0, 1000);
+    // TODO: Add autonomous routine if needed.
 }
 
 // ======================================================
@@ -240,11 +244,37 @@ void autonomous() {
 // ======================================================
 void opcontrol() {
     while (true) {
+        if (master.get_digital_new_press(DIGITAL_X)) {
+            six_wheel_drive_enabled = true;
+        }
+        if (master.get_digital_new_press(DIGITAL_Y)) {
+            six_wheel_drive_enabled = false;
+        }
+        if (master.get_digital_new_press(DIGITAL_A)) {
+            gps_mode_enabled.store(true);
+        }
+        if (master.get_digital_new_press(DIGITAL_B)) {
+            gps_mode_enabled.store(false);
+        }
+
         int forward = master.get_analog(ANALOG_LEFT_Y);
         int turn = master.get_analog(ANALOG_RIGHT_X);
 
-        left_motors.move(forward - turn);
-        right_motors.move(forward + turn);
+        const int left_cmd = forward - turn;
+        const int right_cmd = forward + turn;
+
+        left_front.move(left_cmd);
+        left_back.move(left_cmd);
+        right_front.move(right_cmd);
+        right_back.move(right_cmd);
+
+        if (six_wheel_drive_enabled) {
+            left_middle.move(left_cmd);
+            right_middle.move(right_cmd);
+        } else {
+            left_middle.brake();
+            right_middle.brake();
+        }
 
         if (master.get_digital(DIGITAL_L1)) {
             intake_on();

@@ -1,3 +1,4 @@
+#if 0
 #include "main.h"
 #include "lemlog/logger/sinks/terminal.hpp"
 #include "hardware/Motor/MotorGroup.hpp"
@@ -53,3 +54,4 @@ void disabled() {}
 void autonomous() {}
 
 void opcontrol() {}
+#endif

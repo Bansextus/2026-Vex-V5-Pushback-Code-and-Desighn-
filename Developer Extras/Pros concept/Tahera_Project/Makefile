@@ -41,6 +41,10 @@ TEMPLATE_FILES=$(INCDIR)/$(LIBNAME)/*.h $(INCDIR)/$(LIBNAME)/*.hpp
 
 .DEFAULT_GOAL=quick
 
+# Exclude the bundled LemLib sample sources from the build.
+EXCLUDE_SRCDIRS += $(SRCDIR)/src%
+EXCLUDE_SRCDIRS += src/src%
+
 ################################################################################
 ################################################################################
 ########## Nothing below this line should be edited by typical users ###########
