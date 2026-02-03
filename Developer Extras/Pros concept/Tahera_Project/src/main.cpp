@@ -1,5 +1,11 @@
 #include "main.h"
+#include "hot-cold-asset/asset.hpp"
 #include "lemlib/api.hpp"
+
+#include <cstdint>
+#include <vector>
+
+ASSET(jerkbot_bmp);
 
 // ======================================================
 // Motors
@@ -17,16 +23,135 @@ pros::MotorGroup right_motors({pros::Motor(4, pros::E_MOTOR_GEAR_BLUE, true),
 pros::Motor intake_left(7, pros::E_MOTOR_GEAR_BLUE, false);
 pros::Motor intake_right(8, pros::E_MOTOR_GEAR_BLUE, true);
 
-// Outtake motor
-pros::Motor outtake(9, pros::E_MOTOR_GEAR_BLUE, false);
+// Outtake motors
+pros::Motor outtake_left(9, pros::E_MOTOR_GEAR_BLUE, false);
+pros::Motor outtake_right(12, pros::E_MOTOR_GEAR_BLUE, true);
 
 // ======================================================
 // Controller
 // ======================================================
 pros::Controller master(pros::E_CONTROLLER_MASTER);
 
+// ======================================================
+// GPS Sensor
+// ======================================================
+pros::Gps gps(10, 0, 0); // Removed status flag
+
 namespace {
+constexpr std::int16_t kImageX = 0;
+constexpr std::int16_t kImageY = 80;
+
+std::uint16_t read_u16(const std::uint8_t* data, std::size_t offset) {
+    return static_cast<std::uint16_t>(data[offset]) |
+           (static_cast<std::uint16_t>(data[offset + 1]) << 8);
+}
+
+std::uint32_t read_u32(const std::uint8_t* data, std::size_t offset) {
+    return static_cast<std::uint32_t>(data[offset]) |
+           (static_cast<std::uint32_t>(data[offset + 1]) << 8) |
+           (static_cast<std::uint32_t>(data[offset + 2]) << 16) |
+           (static_cast<std::uint32_t>(data[offset + 3]) << 24);
+}
+
+bool draw_bmp_asset(const asset& bmp, std::int16_t x0, std::int16_t y0) {
+    if (bmp.buf == nullptr || bmp.size < 54) {
+        return false;
+    }
+
+    const auto* data = bmp.buf;
+    if (data[0] != 'B' || data[1] != 'M') {
+        return false;
+    }
+
+    const std::uint32_t data_offset = read_u32(data, 10);
+    const std::uint32_t dib_size = read_u32(data, 14);
+    if (dib_size < 40) {
+        return false;
+    }
+
+    const std::int32_t width = static_cast<std::int32_t>(read_u32(data, 18));
+    std::int32_t height = static_cast<std::int32_t>(read_u32(data, 22));
+    const std::uint16_t planes = read_u16(data, 26);
+    const std::uint16_t bpp = read_u16(data, 28);
+    const std::uint32_t compression = read_u32(data, 30);
+
+    if (width <= 0 || height == 0 || planes != 1 || compression != 0) {
+        return false;
+    }
+    if (bpp != 24 && bpp != 32) {
+        return false;
+    }
+
+    const bool top_down = height < 0;
+    if (top_down) {
+        height = -height;
+    }
+
+    const std::uint32_t bytes_per_pixel = bpp / 8;
+    const std::uint32_t row_stride = ((width * bytes_per_pixel + 3) / 4) * 4;
+    const std::uint64_t required = static_cast<std::uint64_t>(data_offset) +
+                                   static_cast<std::uint64_t>(row_stride) * height;
+    if (required > bmp.size) {
+        return false;
+    }
+
+    const std::int16_t x1 = static_cast<std::int16_t>(x0 + width - 1);
+    const std::int16_t y1 = static_cast<std::int16_t>(y0 + height - 1);
+    if (x1 < 0 || y1 < 0 || x0 >= 480 || y0 >= 272) {
+        return false;
+    }
+
+    std::int16_t x_start = x0;
+    std::int16_t x_end = x1;
+    std::int32_t clip_left = 0;
+    std::int32_t clip_right = 0;
+    if (x_start < 0) {
+        clip_left = -x_start;
+        x_start = 0;
+    }
+    if (x_end >= 480) {
+        clip_right = x_end - 479;
+        x_end = 479;
+    }
+    const std::int32_t draw_width = x_end - x_start + 1;
+    if (draw_width <= 0) {
+        return false;
+    }
+
+    std::vector<std::uint32_t> row_buf(draw_width);
+    for (std::int32_t y = 0; y < height; ++y) {
+        const std::int32_t src_y = top_down ? y : (height - 1 - y);
+        const std::uint8_t* row = data + data_offset + row_stride * src_y;
+
+        const std::int32_t src_x_start = clip_left;
+        const std::int32_t src_x_end = width - 1 - clip_right;
+        std::int32_t out_x = 0;
+        for (std::int32_t x = src_x_start; x <= src_x_end; ++x) {
+            const std::uint8_t* px = row + x * bytes_per_pixel;
+            const std::uint8_t b = px[0];
+            const std::uint8_t g = px[1];
+            const std::uint8_t r = px[2];
+            row_buf[out_x++] = (static_cast<std::uint32_t>(r) << 16) |
+                               (static_cast<std::uint32_t>(g) << 8) |
+                               static_cast<std::uint32_t>(b);
+        }
+
+        const std::int16_t y_row = static_cast<std::int16_t>(y0 + y);
+        if (y_row < 0 || y_row >= 272) {
+            continue;
+        }
+        pros::screen::copy_area(x_start, y_row, x_end, y_row, row_buf.data(), draw_width);
+    }
+
+    return true;
+}
+
 void gps_screen_task_fn(void*) {
+    const bool image_ok = draw_bmp_asset(jerkbot_bmp, kImageX, kImageY);
+    if (!image_ok) {
+        pros::screen::print(TEXT_MEDIUM, 4, "Image load failed");
+    }
+
     while (true) {
         const auto position = gps.get_position();
         pros::screen::print(TEXT_MEDIUM, 1, "GPS X: %.2f m", position.x);
@@ -36,11 +161,6 @@ void gps_screen_task_fn(void*) {
     }
 }
 }
-
-// ======================================================
-// GPS Sensor
-// ======================================================
-pros::Gps gps(10, 0, 0); // Removed status flag
 
 // ======================================================
 // LemLib Setup
@@ -72,11 +192,18 @@ void intake_off() {
 }
 
 void outtake_on() {
-    outtake.move(127);
+    outtake_left.move(127);
+    outtake_right.move(127);
+}
+
+void outtake_reverse() {
+    outtake_left.move(-127);
+    outtake_right.move(-127);
 }
 
 void outtake_off() {
-    outtake.brake();
+    outtake_left.brake();
+    outtake_right.brake();
 }
 
 // ======================================================
@@ -84,14 +211,10 @@ void outtake_off() {
 // ======================================================
 void initialize() {
     pros::lcd::initialize();
-<<<<<<< Updated upstream
     pros::lcd::set_text(1, "LemLib Initialized");
 
     chassis.calibrate(); // GPS calibration
-=======
-    imu.reset(true); 
     static pros::Task gps_screen_task(gps_screen_task_fn, nullptr, "gps-screen");
->>>>>>> Stashed changes
 }
 
 // ======================================================
@@ -128,24 +251,16 @@ void opcontrol() {
         } else if (master.get_digital(DIGITAL_L2)) {
             intake_reverse();
         } else {
-<<<<<<< Updated upstream
             intake_off();
-=======
-            intake_left.brake();
-            intake_right.brake();
         }
 
         // --- OUTTAKE CONTROL (R1/R2) ---
         if (master.get_digital(DIGITAL_R1)) {
-            outtake_left.move(127);
-            outtake_right.move(127);
+            outtake_on();
         } else if (master.get_digital(DIGITAL_R2)) {
-            outtake_left.move(-127);
-            outtake_right.move(-127);
+            outtake_reverse();
         } else {
-            outtake_left.brake();
-            outtake_right.brake();
->>>>>>> Stashed changes
+            outtake_off();
         }
 
         pros::delay(20);
