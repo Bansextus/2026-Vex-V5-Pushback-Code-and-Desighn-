@@ -1,5 +1,6 @@
 #include "main.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -247,7 +248,6 @@ StepType next_step_type(StepType type) {
 void draw_button(const Rect& r, const char* label, std::uint32_t color) {
     pros::screen::set_pen(color);
     pros::screen::draw_rect(r.x, r.y, r.x + r.w, r.y + r.h);
-    pros::screen::print_at(r.x + 6, r.y + 18, label);
 }
 
 void draw_menu(AutonMode mode, int step_index, Step* plan, std::size_t count) {
@@ -282,10 +282,10 @@ void draw_menu(AutonMode mode, int step_index, Step* plan, std::size_t count) {
     if (step_index >= static_cast<int>(count)) step_index = static_cast<int>(count) - 1;
 
     const Step& step = plan[step_index];
-    pros::screen::print_at(10, 150, "STEP: %d / %d", step_index + 1, static_cast<int>(count));
-    pros::screen::print_at(10, 175, "TYPE: %s", step_type_name(step.type));
-    pros::screen::print_at(10, 200, "V1: %d", step.value1);
-    pros::screen::print_at(10, 225, "V2: %d", step.value2);
+    pros::screen::print(TEXT_MEDIUM, 6, "STEP: %d / %d", step_index + 1, static_cast<int>(count));
+    pros::screen::print(TEXT_MEDIUM, 7, "TYPE: %s", step_type_name(step.type));
+    pros::screen::print(TEXT_MEDIUM, 8, "V1: %d", step.value1);
+    pros::screen::print(TEXT_MEDIUM, 9, "V2: %d", step.value2);
 }
 
 bool save_plans_to_sd() {
@@ -354,6 +354,10 @@ void menu_loop() {
     }
 }
 
+void menu_task_fn(void*) {
+    menu_loop();
+}
+
 // =====================================================
 // PROS LIFECYCLE
 // =====================================================
@@ -365,7 +369,7 @@ void initialize() {
         pros::delay(10);
     }
     draw_jerkbot();
-    static pros::Task menu_task([](void*) { menu_loop(); });
+    static pros::Task menu_task(menu_task_fn);
 }
 
 void autonomous() {
