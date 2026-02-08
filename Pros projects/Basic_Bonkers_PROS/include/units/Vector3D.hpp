@@ -353,6 +353,7 @@ typedef Vector3D<LinearAcceleration> V3Acceleration;
 typedef Vector3D<Force> V3Force;
 } // namespace units
 
+#if LEMLIB_HAS_FORMAT
 template <typename T> struct std::formatter<units::Vector3D<T>> : std::formatter<T> {
         // Optionally parse format specifiers for T
         constexpr auto parse(auto& ctx) { return formatter<T>::parse(ctx); }
@@ -376,3 +377,4 @@ template <typename T> struct std::formatter<units::Vector3D<T>> : std::formatter
             return it;
         }
 };
+#endif

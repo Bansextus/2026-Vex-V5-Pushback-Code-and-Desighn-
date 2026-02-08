@@ -1,0 +1,12 @@
+[submodule "Pros projects/Tahera_Project/LEMLib"]
+	path = Pros projects/Tahera_Project/LEMLib
+	url = https://github.com/LEMLib/LEMLib.git
+[submodule "Pros projects/Auton_Planner_PROS/LEMLib"]
+	path = Pros projects/Auton_Planner_PROS/LEMLib
+	url = https://github.com/LEMLib/LEMLib.git
+[submodule "Pros projects/Jerkbot_Image_Test/LEMLib"]
+	path = Pros projects/Jerkbot_Image_Test/LEMLib
+	url = https://github.com/LEMLib/LEMLib.git
+[submodule "Pros projects/Basic_Bonkers_PROS/LEMLib"]
+	path = Pros projects/Basic_Bonkers_PROS/LEMLib
+	url = https://github.com/LEMLib/LEMLib.git

@@ -1,6 +1,11 @@
 #pragma once
 
+#if __has_include(<format>)
 #include <format>
+#define LEMLIB_HAS_FORMAT 1
+#else
+#define LEMLIB_HAS_FORMAT 0
+#endif
 #include <string>
 #include "lemlog/logger/Sink.hpp"
 
@@ -55,6 +60,7 @@ class Helper {
 
         template <typename... Args>
         void log(Level level, std::string_view format, Args&&... args) const {
+#if LEMLIB_HAS_FORMAT
             const auto& formatted_args = std::make_format_args(args...);
 
             // Create the format_args object using std::forward
@@ -62,6 +68,11 @@ class Helper {
 
             // Log the formatted message
             logger::log(level, m_topic, message);
+#else
+            (void)sizeof...(args);
+            const std::string message(format);
+            logger::log(level, m_topic, message);
+#endif
         }
 
         template <typename... Args>

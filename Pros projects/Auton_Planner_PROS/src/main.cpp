@@ -356,6 +356,7 @@ constexpr int kRecordSnap = 5;
 pros::Mutex g_plan_mutex;
 bool g_recording = false;
 bool g_record_full = false;
+bool g_record_ui_dirty = false;
 AutonMode g_record_mode = AutonMode::GPS_MODE;
 int g_record_index = 0;
 
@@ -381,11 +382,13 @@ void start_recording() {
     g_record_index = 0;
     g_record_full = false;
     g_recording = true;
+    g_record_ui_dirty = true;
     g_plan_mutex.give();
 }
 
 void stop_recording() {
     g_recording = false;
+    g_record_ui_dirty = true;
 }
 
 void record_sample(int left_speed, int right_speed) {
@@ -416,6 +419,7 @@ void record_sample(int left_speed, int right_speed) {
     if (g_record_index >= static_cast<int>(kMaxSteps)) {
         g_recording = false;
         g_record_full = true;
+        g_record_ui_dirty = true;
         g_plan_mutex.give();
         return;
     }
@@ -428,6 +432,21 @@ void draw_button(const Rect& r, const char* label, std::uint32_t color) {
     pros::screen::set_pen(color);
     pros::screen::draw_rect(r.x, r.y, r.x + r.w, r.y + r.h);
     pros::screen::print(TEXT_MEDIUM, r.x + 6, r.y + 8, label);
+}
+
+Rect record_button_rect() {
+    return {10, 180, 140, 30};
+}
+
+void draw_record_button() {
+    const Rect rec_btn = record_button_rect();
+    const bool recording = g_recording;
+    const char* label = recording ? "STOP" : "REC";
+    const std::uint32_t color = recording ? 0x00FF0000 : 0x0000FF00;
+
+    pros::screen::set_pen(0x00000000);
+    pros::screen::fill_rect(rec_btn.x, rec_btn.y, rec_btn.x + rec_btn.w, rec_btn.y + rec_btn.h);
+    draw_button(rec_btn, label, color);
 }
 
 void draw_menu(AutonMode mode, int step_index, Step* plan, std::size_t count) {
@@ -451,7 +470,7 @@ void draw_menu(AutonMode mode, int step_index, Step* plan, std::size_t count) {
     const Rect v2p_btn{380, 100, 50, 30};
     const Rect v3m_btn{320, 140, 50, 30};
     const Rect v3p_btn{380, 140, 50, 30};
-    const Rect rec_btn{10, 180, 140, 30};
+    const Rect rec_btn = record_button_rect();
     const Rect clr_btn{170, 180, 140, 30};
 
     draw_button(prev_btn, "PREV", 0x00FFFFFF);
@@ -463,7 +482,7 @@ void draw_menu(AutonMode mode, int step_index, Step* plan, std::size_t count) {
     draw_button(v2p_btn, "V2+", 0x00FFFFFF);
     draw_button(v3m_btn, "V3-", 0x00FFFFFF);
     draw_button(v3p_btn, "V3+", 0x00FFFFFF);
-    draw_button(rec_btn, g_recording ? "STOP" : "REC", g_recording ? 0x00FF0000 : 0x0000FF00);
+    draw_record_button();
     draw_button(clr_btn, "CLEAR", 0x00FFFFFF);
 
     if (step_index < 0) step_index = 0;
@@ -500,21 +519,22 @@ void menu_loop() {
               g_auton_mode == AutonMode::GPS_MODE ? gps_plan : basic_plan,
               static_cast<int>(kMaxSteps));
 
-    int refresh_ms = 0;
+    bool touch_armed = false;
 
     while (true) {
-        if (g_recording) {
-            refresh_ms += 50;
-            if (refresh_ms >= 250) {
-                draw_menu(g_auton_mode, step_index,
-                          g_auton_mode == AutonMode::GPS_MODE ? gps_plan : basic_plan,
-                          static_cast<int>(kMaxSteps));
-                refresh_ms = 0;
-            }
+        if (g_record_ui_dirty) {
+            Step* plan = g_auton_mode == AutonMode::GPS_MODE ? gps_plan : basic_plan;
+            draw_menu(g_auton_mode, step_index, plan, kMaxSteps);
+            g_record_ui_dirty = false;
         }
 
         pros::screen_touch_status_s_t status = pros::screen::touch_status();
-        if (status.touch_status == pros::E_TOUCH_RELEASED) {
+        if (status.touch_status == pros::E_TOUCH_PRESSED || status.touch_status == pros::E_TOUCH_HELD) {
+            touch_armed = true;
+        }
+
+        if (status.touch_status == pros::E_TOUCH_RELEASED && touch_armed) {
+            touch_armed = false;
             const int x = status.x;
             const int y = status.y;
 
@@ -530,7 +550,7 @@ void menu_loop() {
             const Rect v2p_btn{380, 100, 50, 30};
             const Rect v3m_btn{320, 140, 50, 30};
             const Rect v3p_btn{380, 140, 50, 30};
-            const Rect rec_btn{10, 180, 140, 30};
+            const Rect rec_btn = record_button_rect();
             const Rect clr_btn{170, 180, 140, 30};
 
             if (hit_test(rec_btn, x, y)) {

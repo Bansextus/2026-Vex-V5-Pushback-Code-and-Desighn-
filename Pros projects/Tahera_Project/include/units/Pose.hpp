@@ -75,6 +75,7 @@ using AccelerationPose = AbstractPose<std::ratio<2>>;
 
 } // namespace units
 
+#if LEMLIB_HAS_FORMAT
 template <> struct std::formatter<units::Pose, char> : std::formatter<double, char> {
         // Parse specifiers (using the base class's parse function)
         template <typename ParseContext> constexpr auto parse(ParseContext& ctx) {
@@ -102,3 +103,4 @@ template <> struct std::formatter<units::Pose, char> : std::formatter<double, ch
             return it;
         }
 };
+#endif

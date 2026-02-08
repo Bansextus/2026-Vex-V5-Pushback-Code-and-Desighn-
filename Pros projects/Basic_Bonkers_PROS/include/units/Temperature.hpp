@@ -21,11 +21,13 @@ template <> struct LookupName<Quantity<std::ratio<0>, std::ratio<0>, std::ratio<
         using Named = Temperature;
 };
 
+#if LEMLIB_HAS_FORMAT
 template <> struct std::formatter<Temperature> : std::formatter<double> {
         auto format(const Temperature& quantity, std::format_context& ctx) const {
             return std::format_to(ctx.out(), "{}_k", quantity.internal());
         }
 };
+#endif
 
 inline std::ostream& operator<<(std::ostream& os, const Temperature& quantity) {
     os << quantity.internal() << " k";

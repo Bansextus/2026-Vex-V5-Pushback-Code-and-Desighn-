@@ -20,6 +20,12 @@ for file in "$IMAGES_DIR"/*; do
     continue
   fi
 
+  filename="$(basename "$file")"
+  # Skip hidden/AppleDouble files (e.g. ._IMG_1234.jpeg)
+  if [[ "$filename" == .* ]]; then
+    continue
+  fi
+
   ext="${file##*.}"
   lower_ext="$(echo "$ext" | tr '[:upper:]' '[:lower:]')"
 
@@ -33,10 +39,14 @@ for file in "$IMAGES_DIR"/*; do
 
   echo "Converting: $file -> $out"
   tmp_out="/tmp/$(basename "$out")"
-  /usr/bin/sips -s format bmp -z 240 480 "$file" --out "$tmp_out" >/dev/null
-  /bin/cp "$tmp_out" "$out"
-  /bin/rm -f "$tmp_out"
-  converted=$((converted + 1))
+  if /usr/bin/sips -s format bmp -z 240 480 "$file" --out "$tmp_out" >/dev/null; then
+    /bin/cp "$tmp_out" "$out"
+    /bin/rm -f "$tmp_out"
+    converted=$((converted + 1))
+  else
+    echo "Failed to convert: $file"
+    /bin/rm -f "$tmp_out"
+  fi
 done
 
 echo "Done. Converted $converted file(s) to BMP."

@@ -21,12 +21,14 @@ template <> struct LookupName<Quantity<std::ratio<0>, std::ratio<0>, std::ratio<
         using Named = Angle;
 };
 
+#if LEMLIB_HAS_FORMAT
 template <> struct std::formatter<Angle> : std::formatter<double> {
         auto format(const Angle& number, std::format_context& ctx) const {
             auto formatted_double = std::formatter<double>::format(number.internal(), ctx);
             return std::format_to(formatted_double, "_stRad");
         }
 };
+#endif
 
 inline std::ostream& operator<<(std::ostream& os, const Angle& quantity) {
     os << quantity.internal() << " rad";

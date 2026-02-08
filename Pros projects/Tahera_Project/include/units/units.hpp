@@ -3,7 +3,12 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#if __has_include(<format>)
 #include <format>
+#define LEMLIB_HAS_FORMAT 1
+#else
+#define LEMLIB_HAS_FORMAT 0
+#endif
 #include <iostream>
 #include <ratio>
 #include <type_traits>
@@ -225,6 +230,7 @@ template <isQuantity Q, typename quotient> using Rooted = Named<
              std::ratio_divide<typename Q::angle, quotient>, std::ratio_divide<typename Q::temperature, quotient>,
              std::ratio_divide<typename Q::luminosity, quotient>, std::ratio_divide<typename Q::moles, quotient>>>;
 
+#if LEMLIB_HAS_FORMAT
 template <isQuantity Q> struct std::formatter<Q> : std::formatter<double> {
         auto format(const Q& quantity, std::format_context& ctx) const {
             constinit static std::array<std::pair<intmax_t, intmax_t>, 8> dims {{
@@ -256,6 +262,7 @@ template <isQuantity Q> struct std::formatter<Q> : std::formatter<double> {
             return out;
         }
 };
+#endif
 
 inline void unit_printer_helper(std::ostream& os, double quantity,
                                 const std::array<std::pair<intmax_t, intmax_t>, 8>& dims) {
@@ -379,6 +386,18 @@ template <isQuantity Q, isQuantity R> constexpr bool operator>(const Q& lhs, con
     return (lhs.internal() > rhs.internal());
 }
 
+#if LEMLIB_HAS_FORMAT
+#define LEMLIB_FORMATTER(Name, suffix)                                                                                 \
+    template <> struct std::formatter<Name> : std::formatter<double> {                                                 \
+            auto format(const Name& number, std::format_context& ctx) const {                                          \
+                auto formatted_double = std::formatter<double>::format(number.internal(), ctx);                        \
+                return std::format_to(formatted_double, "_" #suffix);                                                  \
+            }                                                                                                          \
+    };
+#else
+#define LEMLIB_FORMATTER(Name, suffix)
+#endif
+
 #define NEW_UNIT(Name, suffix, m, l, t, i, a, o, j, n)                                                                 \
     class Name : public Quantity<std::ratio<m>, std::ratio<l>, std::ratio<t>, std::ratio<i>, std::ratio<a>,            \
                                  std::ratio<o>, std::ratio<j>, std::ratio<n>> {                                        \
@@ -406,12 +425,7 @@ template <isQuantity Q, isQuantity R> constexpr bool operator>(const Q& lhs, con
         return Name(Quantity<std::ratio<m>, std::ratio<l>, std::ratio<t>, std::ratio<i>, std::ratio<a>, std::ratio<o>, \
                              std::ratio<j>, std::ratio<n>>(static_cast<double>(value)));                               \
     }                                                                                                                  \
-    template <> struct std::formatter<Name> : std::formatter<double> {                                                 \
-            auto format(const Name& number, std::format_context& ctx) const {                                          \
-                auto formatted_double = std::formatter<double>::format(number.internal(), ctx);                        \
-                return std::format_to(formatted_double, "_" #suffix);                                                  \
-            }                                                                                                          \
-    };                                                                                                                 \
+    LEMLIB_FORMATTER(Name, suffix)                                                                                     \
     inline std::ostream& operator<<(std::ostream& os, const Name& quantity) {                                          \
         os << quantity.internal() << " " << #suffix;                                                                   \
         return os;                                                                                                     \
