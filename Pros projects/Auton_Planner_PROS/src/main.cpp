@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <vector>
 
 // =====================================================
@@ -22,9 +23,71 @@ pros::Controller master(pros::E_CONTROLLER_MASTER);
 pros::Imu imu(11);
 pros::Gps gps(10);
 
-// Optional: SD image (place at /usd/images/jerkbot.bmp)
 namespace {
-constexpr char kJerkbotPath[] = "/usd/images/jerkbot.bmp";
+// Optional: SD image (place at /usd/Images/jerkbot.bmp or /usd/jerkbot.bmp)
+constexpr char kJerkbotName[] = "jerkbot.bmp";
+
+int g_step_index = 0;
+
+bool starts_with(const char* str, const char* prefix) {
+    if (!str || !prefix) {
+        return false;
+    }
+    const std::size_t prefix_len = std::strlen(prefix);
+    return std::strncmp(str, prefix, prefix_len) == 0;
+}
+
+bool try_mount_sd() {
+    char buffer[64] = {0};
+    errno = 0;
+    return pros::usd::list_files("/", buffer, sizeof(buffer)) != PROS_ERR;
+}
+
+FILE* sd_open(const char* name, const char* mode) {
+    if (!name || !mode) {
+        return nullptr;
+    }
+
+    const char* prefixes[] = {
+        "/usd/",
+        "usd/",
+        "/usd/Images/",
+        "/usd/images/",
+        "usd/Images/",
+        "usd/images/",
+    };
+
+    for (int attempt = 0; attempt < 3; ++attempt) {
+        FILE* file = std::fopen(name, mode);
+        if (file) {
+            return file;
+        }
+
+        if (starts_with(name, "usd/")) {
+            char fixed[128];
+            std::snprintf(fixed, sizeof(fixed), "/%s", name);
+            file = std::fopen(fixed, mode);
+            if (file) {
+                return file;
+            }
+        }
+
+        try_mount_sd();
+
+        char path[128];
+        for (const char* prefix : prefixes) {
+            std::snprintf(path, sizeof(path), "%s%s", prefix, name);
+            file = std::fopen(path, mode);
+            if (file) {
+                return file;
+            }
+        }
+
+        pros::delay(50);
+    }
+
+    return nullptr;
+}
 }
 
 // =====================================================
@@ -45,8 +108,8 @@ void update_auton_mode_from_controller() {
 // =====================================================
 // BMP DRAW (24-bit uncompressed)
 // =====================================================
-bool draw_bmp_from_sd(const char* path, int x, int y) {
-    FILE* file = std::fopen(path, "rb");
+bool draw_bmp_from_sd(const char* name, int x, int y) {
+    FILE* file = sd_open(name, "rb");
     if (!file) return false;
 
     std::uint8_t header[54];
@@ -95,7 +158,7 @@ bool draw_bmp_from_sd(const char* path, int x, int y) {
 }
 
 void draw_jerkbot() {
-    draw_bmp_from_sd(kJerkbotPath, 0, 0);
+    draw_bmp_from_sd(kJerkbotName, 0, 0);
 }
 
 // =====================================================
@@ -135,7 +198,9 @@ void turn_to_heading(double target, int max_speed) {
 // =====================================================
 
 enum class StepType {
+    EMPTY,
     DRIVE_MS,
+    TANK_MS,
     TURN_HEADING,
     WAIT_MS,
     INTAKE_ON,
@@ -147,32 +212,43 @@ enum class StepType {
 struct Step {
     StepType type;
     int value1; // speed or heading or ms
-    int value2; // duration for DRIVE_MS
+    int value2; // duration for DRIVE_MS, right speed for TANK_MS
+    int value3; // duration for TANK_MS
 };
 
+constexpr std::size_t kMaxSteps = 10;
+
 // --- GPS MODE PLAN (EDIT THIS) ---
-static Step gps_plan[] = {
-    {StepType::DRIVE_MS, 60, 1200},
-    {StepType::TURN_HEADING, 90, 0},
-    {StepType::DRIVE_MS, -40, 500},
-    {StepType::WAIT_MS, 250, 0},
+static Step gps_plan[kMaxSteps] = {
+    {StepType::DRIVE_MS, 60, 1200, 0},
+    {StepType::TURN_HEADING, 90, 0, 0},
+    {StepType::DRIVE_MS, -40, 500, 0},
+    {StepType::WAIT_MS, 250, 0, 0},
 };
 
 // --- BASIC MODE PLAN (EDIT THIS) ---
-static Step basic_plan[] = {
-    {StepType::DRIVE_MS, 50, 1000},
-    {StepType::TURN_HEADING, 45, 0},
-    {StepType::DRIVE_MS, 50, 500},
+static Step basic_plan[kMaxSteps] = {
+    {StepType::DRIVE_MS, 50, 1000, 0},
+    {StepType::TURN_HEADING, 45, 0, 0},
+    {StepType::DRIVE_MS, 50, 500, 0},
 };
 
 void run_plan(const Step* plan, std::size_t count) {
     for (std::size_t i = 0; i < count; ++i) {
         const Step& step = plan[i];
         switch (step.type) {
+            case StepType::EMPTY:
+                break;
             case StepType::DRIVE_MS:
                 left_drive.move(step.value1);
                 right_drive.move(step.value1);
                 pros::delay(step.value2);
+                stop_drive();
+                break;
+            case StepType::TANK_MS:
+                left_drive.move(step.value1);
+                right_drive.move(step.value2);
+                pros::delay(step.value3);
                 stop_drive();
                 break;
             case StepType::TURN_HEADING:
@@ -221,7 +297,9 @@ bool hit_test(const Rect& r, int x, int y) {
 
 const char* step_type_name(StepType type) {
     switch (type) {
+        case StepType::EMPTY: return "EMPTY";
         case StepType::DRIVE_MS: return "DRIVE_MS";
+        case StepType::TANK_MS: return "TANK_MS";
         case StepType::TURN_HEADING: return "TURN_HEADING";
         case StepType::WAIT_MS: return "WAIT_MS";
         case StepType::INTAKE_ON: return "INTAKE_ON";
@@ -232,35 +310,137 @@ const char* step_type_name(StepType type) {
     }
 }
 
+StepType prev_step_type(StepType type) {
+    switch (type) {
+        case StepType::EMPTY: return StepType::OUTTAKE_OFF;
+        case StepType::DRIVE_MS: return StepType::EMPTY;
+        case StepType::TANK_MS: return StepType::DRIVE_MS;
+        case StepType::TURN_HEADING: return StepType::TANK_MS;
+        case StepType::WAIT_MS: return StepType::TURN_HEADING;
+        case StepType::INTAKE_ON: return StepType::WAIT_MS;
+        case StepType::INTAKE_OFF: return StepType::INTAKE_ON;
+        case StepType::OUTTAKE_ON: return StepType::INTAKE_OFF;
+        case StepType::OUTTAKE_OFF: return StepType::OUTTAKE_ON;
+        default: return StepType::DRIVE_MS;
+    }
+}
+
 StepType next_step_type(StepType type) {
     switch (type) {
-        case StepType::DRIVE_MS: return StepType::TURN_HEADING;
+        case StepType::EMPTY: return StepType::DRIVE_MS;
+        case StepType::DRIVE_MS: return StepType::TANK_MS;
+        case StepType::TANK_MS: return StepType::TURN_HEADING;
         case StepType::TURN_HEADING: return StepType::WAIT_MS;
         case StepType::WAIT_MS: return StepType::INTAKE_ON;
         case StepType::INTAKE_ON: return StepType::INTAKE_OFF;
         case StepType::INTAKE_OFF: return StepType::OUTTAKE_ON;
         case StepType::OUTTAKE_ON: return StepType::OUTTAKE_OFF;
-        case StepType::OUTTAKE_OFF: return StepType::DRIVE_MS;
+        case StepType::OUTTAKE_OFF: return StepType::EMPTY;
         default: return StepType::DRIVE_MS;
     }
+}
+
+Step* active_plan(int* count) {
+    if (g_auton_mode == AutonMode::GPS_MODE) {
+        *count = static_cast<int>(kMaxSteps);
+        return gps_plan;
+    }
+    *count = static_cast<int>(kMaxSteps);
+    return basic_plan;
+}
+
+constexpr int kRecordSampleMs = 100;
+constexpr int kRecordDeadband = 5;
+constexpr int kRecordSnap = 5;
+
+pros::Mutex g_plan_mutex;
+bool g_recording = false;
+bool g_record_full = false;
+AutonMode g_record_mode = AutonMode::GPS_MODE;
+int g_record_index = 0;
+
+int snap_speed(int value) {
+    if (std::abs(value) <= kRecordDeadband) {
+        return 0;
+    }
+    const int snapped = static_cast<int>(std::round(static_cast<double>(value) / kRecordSnap)) * kRecordSnap;
+    return std::max(-127, std::min(127, snapped));
+}
+
+void clear_plan(Step* plan, int count) {
+    for (int i = 0; i < count; ++i) {
+        plan[i] = {StepType::EMPTY, 0, 0, 0};
+    }
+}
+
+void start_recording() {
+    g_plan_mutex.take();
+    g_record_mode = g_auton_mode;
+    Step* plan = (g_record_mode == AutonMode::GPS_MODE) ? gps_plan : basic_plan;
+    clear_plan(plan, static_cast<int>(kMaxSteps));
+    g_record_index = 0;
+    g_record_full = false;
+    g_recording = true;
+    g_plan_mutex.give();
+}
+
+void stop_recording() {
+    g_recording = false;
+}
+
+void record_sample(int left_speed, int right_speed) {
+    if (!g_recording) {
+        return;
+    }
+
+    const int left = snap_speed(left_speed);
+    const int right = snap_speed(right_speed);
+
+    g_plan_mutex.take();
+    Step* plan = (g_record_mode == AutonMode::GPS_MODE) ? gps_plan : basic_plan;
+
+    if (g_record_index == 0 && plan[0].type == StepType::EMPTY) {
+        plan[0] = {StepType::TANK_MS, left, right, kRecordSampleMs};
+        g_record_index = 1;
+        g_plan_mutex.give();
+        return;
+    }
+
+    Step& last = plan[g_record_index - 1];
+    if (last.type == StepType::TANK_MS && last.value1 == left && last.value2 == right) {
+        last.value3 += kRecordSampleMs;
+        g_plan_mutex.give();
+        return;
+    }
+
+    if (g_record_index >= static_cast<int>(kMaxSteps)) {
+        g_recording = false;
+        g_record_full = true;
+        g_plan_mutex.give();
+        return;
+    }
+
+    plan[g_record_index++] = {StepType::TANK_MS, left, right, kRecordSampleMs};
+    g_plan_mutex.give();
 }
 
 void draw_button(const Rect& r, const char* label, std::uint32_t color) {
     pros::screen::set_pen(color);
     pros::screen::draw_rect(r.x, r.y, r.x + r.w, r.y + r.h);
+    pros::screen::print(TEXT_MEDIUM, r.x + 6, r.y + 8, label);
 }
 
 void draw_menu(AutonMode mode, int step_index, Step* plan, std::size_t count) {
-    pros::screen::set_eraser(0x00000000);
-    pros::screen::erase();
+    pros::screen::set_pen(0x00000000);
+    pros::screen::fill_rect(0, 0, kScreenW - 1, kScreenH - 1);
 
     const Rect gps_btn{10, 10, 140, 30};
     const Rect basic_btn{170, 10, 140, 30};
     const Rect save_btn{340, 10, 130, 30};
 
-    draw_button(gps_btn, "GPS (A)", mode == AutonMode::GPS_MODE ? 0x0000FF00 : 0x00FFFFFF);
-    draw_button(basic_btn, "BASIC (B)", mode == AutonMode::BASIC_MODE ? 0x0000FF00 : 0x00FFFFFF);
-    draw_button(save_btn, "SAVE SD", 0x00FFFF00);
+    draw_button(gps_btn, "GPS", mode == AutonMode::GPS_MODE ? 0x0000FF00 : 0x00FFFFFF);
+    draw_button(basic_btn, "BASIC", mode == AutonMode::BASIC_MODE ? 0x0000FF00 : 0x00FFFFFF);
+    draw_button(save_btn, "SAVE", 0x00FFFF00);
 
     const Rect prev_btn{10, 60, 70, 30};
     const Rect next_btn{90, 60, 70, 30};
@@ -269,6 +449,10 @@ void draw_menu(AutonMode mode, int step_index, Step* plan, std::size_t count) {
     const Rect v1p_btn{380, 60, 50, 30};
     const Rect v2m_btn{320, 100, 50, 30};
     const Rect v2p_btn{380, 100, 50, 30};
+    const Rect v3m_btn{320, 140, 50, 30};
+    const Rect v3p_btn{380, 140, 50, 30};
+    const Rect rec_btn{10, 180, 140, 30};
+    const Rect clr_btn{170, 180, 140, 30};
 
     draw_button(prev_btn, "PREV", 0x00FFFFFF);
     draw_button(next_btn, "NEXT", 0x00FFFFFF);
@@ -277,43 +461,58 @@ void draw_menu(AutonMode mode, int step_index, Step* plan, std::size_t count) {
     draw_button(v1p_btn, "V1+", 0x00FFFFFF);
     draw_button(v2m_btn, "V2-", 0x00FFFFFF);
     draw_button(v2p_btn, "V2+", 0x00FFFFFF);
+    draw_button(v3m_btn, "V3-", 0x00FFFFFF);
+    draw_button(v3p_btn, "V3+", 0x00FFFFFF);
+    draw_button(rec_btn, g_recording ? "STOP" : "REC", g_recording ? 0x00FF0000 : 0x0000FF00);
+    draw_button(clr_btn, "CLEAR", 0x00FFFFFF);
 
     if (step_index < 0) step_index = 0;
     if (step_index >= static_cast<int>(count)) step_index = static_cast<int>(count) - 1;
 
     const Step& step = plan[step_index];
-    pros::screen::print(TEXT_MEDIUM, 6, "STEP: %d / %d", step_index + 1, static_cast<int>(count));
-    pros::screen::print(TEXT_MEDIUM, 7, "TYPE: %s", step_type_name(step.type));
-    pros::screen::print(TEXT_MEDIUM, 8, "V1: %d", step.value1);
-    pros::screen::print(TEXT_MEDIUM, 9, "V2: %d", step.value2);
+    pros::screen::print(TEXT_MEDIUM, 10, 120, "STEP: %d / %d", step_index + 1, static_cast<int>(count));
+    pros::screen::print(TEXT_MEDIUM, 10, 140, "TYPE: %s", step_type_name(step.type));
+    pros::screen::print(TEXT_MEDIUM, 10, 160, "V1:%d  V2:%d  V3:%d", step.value1, step.value2, step.value3);
 }
 
 bool save_plans_to_sd() {
-    FILE* file = std::fopen("/usd/auton_plans.txt", "w");
+    FILE* file = sd_open("auton_plans.txt", "w");
     if (!file) return false;
 
     std::fprintf(file, "[GPS]\\n");
     for (const auto& step : gps_plan) {
-        std::fprintf(file, "%s,%d,%d\\n", step_type_name(step.type), step.value1, step.value2);
+        std::fprintf(file, "%s,%d,%d,%d\\n", step_type_name(step.type), step.value1, step.value2, step.value3);
     }
 
     std::fprintf(file, "[BASIC]\\n");
     for (const auto& step : basic_plan) {
-        std::fprintf(file, "%s,%d,%d\\n", step_type_name(step.type), step.value1, step.value2);
+        std::fprintf(file, "%s,%d,%d,%d\\n", step_type_name(step.type), step.value1, step.value2, step.value3);
     }
 
     std::fclose(file);
     return true;
 }
 
+
 void menu_loop() {
     int step_index = 0;
     draw_menu(g_auton_mode, step_index,
               g_auton_mode == AutonMode::GPS_MODE ? gps_plan : basic_plan,
-              g_auton_mode == AutonMode::GPS_MODE ? sizeof(gps_plan) / sizeof(gps_plan[0])
-                                                  : sizeof(basic_plan) / sizeof(basic_plan[0]));
+              static_cast<int>(kMaxSteps));
+
+    int refresh_ms = 0;
 
     while (true) {
+        if (g_recording) {
+            refresh_ms += 50;
+            if (refresh_ms >= 250) {
+                draw_menu(g_auton_mode, step_index,
+                          g_auton_mode == AutonMode::GPS_MODE ? gps_plan : basic_plan,
+                          static_cast<int>(kMaxSteps));
+                refresh_ms = 0;
+            }
+        }
+
         pros::screen_touch_status_s_t status = pros::screen::touch_status();
         if (status.touch_status == pros::E_TOUCH_RELEASED) {
             const int x = status.x;
@@ -329,23 +528,62 @@ void menu_loop() {
             const Rect v1p_btn{380, 60, 50, 30};
             const Rect v2m_btn{320, 100, 50, 30};
             const Rect v2p_btn{380, 100, 50, 30};
+            const Rect v3m_btn{320, 140, 50, 30};
+            const Rect v3p_btn{380, 140, 50, 30};
+            const Rect rec_btn{10, 180, 140, 30};
+            const Rect clr_btn{170, 180, 140, 30};
+
+            if (hit_test(rec_btn, x, y)) {
+                if (g_recording) {
+                    stop_recording();
+                } else {
+                    start_recording();
+                }
+                Step* plan = g_auton_mode == AutonMode::GPS_MODE ? gps_plan : basic_plan;
+                draw_menu(g_auton_mode, step_index, plan, kMaxSteps);
+                pros::delay(50);
+                continue;
+            }
+
+            if (hit_test(clr_btn, x, y)) {
+                stop_recording();
+                g_plan_mutex.take();
+                Step* plan = g_auton_mode == AutonMode::GPS_MODE ? gps_plan : basic_plan;
+                clear_plan(plan, static_cast<int>(kMaxSteps));
+                g_plan_mutex.give();
+                step_index = 0;
+                draw_menu(g_auton_mode, step_index, plan, kMaxSteps);
+                pros::delay(50);
+                continue;
+            }
+
+            if (g_recording) {
+                draw_menu(g_auton_mode, step_index,
+                          g_auton_mode == AutonMode::GPS_MODE ? gps_plan : basic_plan,
+                          kMaxSteps);
+                pros::delay(50);
+                continue;
+            }
 
             if (hit_test(gps_btn, x, y)) g_auton_mode = AutonMode::GPS_MODE;
             if (hit_test(basic_btn, x, y)) g_auton_mode = AutonMode::BASIC_MODE;
             if (hit_test(save_btn, x, y)) save_plans_to_sd();
 
             Step* plan = g_auton_mode == AutonMode::GPS_MODE ? gps_plan : basic_plan;
-            const int count = g_auton_mode == AutonMode::GPS_MODE
-                                  ? static_cast<int>(sizeof(gps_plan) / sizeof(gps_plan[0]))
-                                  : static_cast<int>(sizeof(basic_plan) / sizeof(basic_plan[0]));
+            const int count = static_cast<int>(kMaxSteps);
 
             if (hit_test(prev_btn, x, y)) step_index = std::max(0, step_index - 1);
             if (hit_test(next_btn, x, y)) step_index = std::min(count - 1, step_index + 1);
+
+            g_plan_mutex.take();
             if (hit_test(type_btn, x, y)) plan[step_index].type = next_step_type(plan[step_index].type);
             if (hit_test(v1m_btn, x, y)) plan[step_index].value1 -= 5;
             if (hit_test(v1p_btn, x, y)) plan[step_index].value1 += 5;
             if (hit_test(v2m_btn, x, y)) plan[step_index].value2 -= 50;
             if (hit_test(v2p_btn, x, y)) plan[step_index].value2 += 50;
+            if (hit_test(v3m_btn, x, y)) plan[step_index].value3 -= 50;
+            if (hit_test(v3p_btn, x, y)) plan[step_index].value3 += 50;
+            g_plan_mutex.give();
 
             draw_menu(g_auton_mode, step_index, plan, count);
         }
@@ -368,13 +606,12 @@ void initialize() {
     while (imu.is_calibrating()) {
         pros::delay(10);
     }
-    draw_jerkbot();
-    static pros::Task menu_task(menu_task_fn);
+    static pros::Task menu_task(menu_task_fn, nullptr, TASK_PRIORITY_DEFAULT,
+                                TASK_STACK_DEPTH_DEFAULT, "AutonMenu");
 }
 
 void autonomous() {
     update_auton_mode_from_controller();
-    draw_jerkbot();
 
     if (g_auton_mode == AutonMode::GPS_MODE) {
         run_plan(gps_plan, sizeof(gps_plan) / sizeof(gps_plan[0]));
@@ -384,11 +621,18 @@ void autonomous() {
 }
 
 void opcontrol() {
+    int record_timer_ms = 0;
     while (true) {
         update_auton_mode_from_controller();
 
         int left_y = master.get_analog(ANALOG_LEFT_Y);
         int right_y = master.get_analog(ANALOG_RIGHT_Y);
+
+        record_timer_ms += 20;
+        if (record_timer_ms >= kRecordSampleMs) {
+            record_timer_ms = 0;
+            record_sample(left_y, right_y);
+        }
 
         left_drive.move(left_y);
         right_drive.move(right_y);
