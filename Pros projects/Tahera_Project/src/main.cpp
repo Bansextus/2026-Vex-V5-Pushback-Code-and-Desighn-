@@ -80,8 +80,11 @@ FILE* sd_open(const char* name, const char* mode) {
 // 1. MOTORS & SENSORS (PROS 4 Syntax)
 // ======================================================
 // Use distinct names to avoid conflicts with LemLib's global motor groups.
-pros::MotorGroup left_drive({-1, 2, -3}, pros::v5::MotorGears::blue);
-pros::MotorGroup right_drive({4, -5, 6}, pros::v5::MotorGears::blue);
+// Outer motors are grouped; middle motors are controlled separately for 6WD toggle.
+pros::MotorGroup left_drive({-1, -3}, pros::v5::MotorGears::blue);
+pros::MotorGroup right_drive({4, 6}, pros::v5::MotorGears::blue);
+pros::Motor left_middle(2, pros::v5::MotorGears::blue);
+pros::Motor right_middle(-5, pros::v5::MotorGears::blue);
 
 pros::Motor intake_left(7, pros::v5::MotorGears::blue);
 pros::Motor intake_right(-8, pros::v5::MotorGears::blue);
@@ -101,6 +104,8 @@ static AutonMode g_auton_mode = AutonMode::GPS_LEMLIB;
 static bool g_sd_plans_loaded = false;
 static bool g_manual_auton_request = false;
 static bool g_auton_running = false;
+static bool g_gps_drive_enabled = false;
+static bool g_six_wheel_drive_enabled = true;
 pros::Mutex g_auton_mutex;
 constexpr char kUiConfigName[] = "ui_images.txt";
 constexpr char kDefaultSplash[] = "loading_icon.bmp";
@@ -338,9 +343,27 @@ bool delay_with_abort(int ms) {
     return true;
 }
 
-void stop_all_motors() {
+void drive_set(int left, int right) {
+    left_drive.move(left);
+    right_drive.move(right);
+    if (g_six_wheel_drive_enabled) {
+        left_middle.move(left);
+        right_middle.move(right);
+    } else {
+        left_middle.brake();
+        right_middle.brake();
+    }
+}
+
+void drive_brake() {
     left_drive.brake();
     right_drive.brake();
+    left_middle.brake();
+    right_middle.brake();
+}
+
+void stop_all_motors() {
+    drive_brake();
     intake_left.brake();
     intake_right.brake();
     outtake_left.brake();
@@ -492,24 +515,20 @@ void run_selected_auton() {
                     case StepType::EMPTY:
                         break;
                     case StepType::DRIVE_MS:
-                        left_drive.move(step.value1);
-                        right_drive.move(step.value1);
+                        drive_set(step.value1, step.value1);
                         if (!delay_with_abort(step.value2)) {
                             stop_all_motors();
                             break;
                         }
-                        left_drive.brake();
-                        right_drive.brake();
+                        drive_brake();
                         break;
                     case StepType::TANK_MS:
-                        left_drive.move(step.value1);
-                        right_drive.move(step.value2);
+                        drive_set(step.value1, step.value2);
                         if (!delay_with_abort(step.value3)) {
                             stop_all_motors();
                             break;
                         }
-                        left_drive.brake();
-                        right_drive.brake();
+                        drive_brake();
                         break;
                     case StepType::TURN_HEADING:
                         turn_to_heading(step.value1, 60);
@@ -550,24 +569,20 @@ void run_selected_auton() {
                     case StepType::EMPTY:
                         break;
                     case StepType::DRIVE_MS:
-                        left_drive.move(step.value1);
-                        right_drive.move(step.value1);
+                        drive_set(step.value1, step.value1);
                         if (!delay_with_abort(step.value2)) {
                             stop_all_motors();
                             break;
                         }
-                        left_drive.brake();
-                        right_drive.brake();
+                        drive_brake();
                         break;
                     case StepType::TANK_MS:
-                        left_drive.move(step.value1);
-                        right_drive.move(step.value2);
+                        drive_set(step.value1, step.value2);
                         if (!delay_with_abort(step.value3)) {
                             stop_all_motors();
                             break;
                         }
-                        left_drive.brake();
-                        right_drive.brake();
+                        drive_brake();
                         break;
                     case StepType::TURN_HEADING:
                         turn_to_heading(step.value1, 60);
@@ -629,12 +644,17 @@ void auton_watchdog_task_fn(void*) {
 }
 
 void update_auton_mode_from_controller() {
-    if (master.get_digital(DIGITAL_A)) {
-        g_auton_mode = AutonMode::GPS_LEMLIB;
-    } else if (master.get_digital(DIGITAL_B)) {
-        g_auton_mode = AutonMode::NO_GPS;
+    if (master.get_digital_new_press(DIGITAL_A)) {
+        g_gps_drive_enabled = true;
+    } else if (master.get_digital_new_press(DIGITAL_B)) {
+        g_gps_drive_enabled = false;
     }
 
+    if (master.get_digital_new_press(DIGITAL_Y)) {
+        g_six_wheel_drive_enabled = true;
+    } else if (master.get_digital_new_press(DIGITAL_X)) {
+        g_six_wheel_drive_enabled = false;
+    }
 }
 
 StepType parse_step_type(const std::string& token) {
@@ -715,24 +735,20 @@ void turn_to_heading(double target, int max_speed) {
         if (speed > max_speed) speed = max_speed;
         if (speed < -max_speed) speed = -max_speed;
 
-        left_drive.move(speed);
-        right_drive.move(-speed);
+        drive_set(speed, -speed);
         pros::delay(20);
     }
-    left_drive.brake();
-    right_drive.brake();
+    drive_brake();
 }
 
 void run_simple_auton_fallback() {
-    left_drive.move(60);
-    right_drive.move(60);
+    drive_set(60, 60);
     if (!delay_with_abort(1500)) {
         stop_all_motors();
         return;
     }
 
-    left_drive.brake();
-    right_drive.brake();
+    drive_brake();
     if (!delay_with_abort(100)) {
         stop_all_motors();
         return;
@@ -740,15 +756,13 @@ void run_simple_auton_fallback() {
 
     turn_to_heading(90, 60);
 
-    left_drive.move(-40);
-    right_drive.move(-40);
+    drive_set(-40, -40);
     if (!delay_with_abort(500)) {
         stop_all_motors();
         return;
     }
 
-    left_drive.brake();
-    right_drive.brake();
+    drive_brake();
 }
 
 // ======================================================
@@ -804,13 +818,65 @@ void opcontrol() {
             g_show_selection_ui = false;
             show_driver_image_once();
         }
-        // --- TANK DRIVE LOGIC ---
-        // Left stick controls left side, Right stick controls right side
-        int left_y = master.get_analog(ANALOG_LEFT_Y);
-        int right_y = master.get_analog(ANALOG_RIGHT_Y);
+        // --- DRIVE LOGIC (D-PAD OVERRIDE + TANK) ---
+        const bool dpad_up = master.get_digital(DIGITAL_UP);
+        const bool dpad_down = master.get_digital(DIGITAL_DOWN);
+        const bool dpad_left = master.get_digital(DIGITAL_LEFT);
+        const bool dpad_right = master.get_digital(DIGITAL_RIGHT);
 
-        left_drive.move(left_y);
-        right_drive.move(right_y);
+        int left_cmd = 0;
+        int right_cmd = 0;
+
+        if (dpad_up || dpad_down || dpad_left || dpad_right) {
+            constexpr int kDpadSpeed = 80;
+            if (g_gps_drive_enabled) {
+                double target = 0.0;
+                if (dpad_up) {
+                    target = 0.0;
+                } else if (dpad_right) {
+                    target = 90.0;
+                } else if (dpad_down) {
+                    target = 180.0;
+                } else if (dpad_left) {
+                    target = 270.0;
+                }
+
+                double heading = gps.get_heading() / 100.0;
+                double error = target - heading;
+                if (error > 180.0) error -= 360.0;
+                if (error < -180.0) error += 360.0;
+
+                const double kp = 1.2;
+                double turn = error * kp;
+                if (turn > 60.0) turn = 60.0;
+                if (turn < -60.0) turn = -60.0;
+
+                left_cmd = static_cast<int>(kDpadSpeed - turn);
+                right_cmd = static_cast<int>(kDpadSpeed + turn);
+            } else {
+                if (dpad_up) {
+                    left_cmd = kDpadSpeed;
+                    right_cmd = kDpadSpeed;
+                } else if (dpad_down) {
+                    left_cmd = -kDpadSpeed;
+                    right_cmd = -kDpadSpeed;
+                } else if (dpad_left) {
+                    left_cmd = -kDpadSpeed;
+                    right_cmd = kDpadSpeed;
+                } else if (dpad_right) {
+                    left_cmd = kDpadSpeed;
+                    right_cmd = -kDpadSpeed;
+                }
+            }
+        } else {
+            // Left stick controls left side, Right stick controls right side
+            int left_y = master.get_analog(ANALOG_LEFT_Y);
+            int right_y = master.get_analog(ANALOG_RIGHT_Y);
+            left_cmd = left_y;
+            right_cmd = right_y;
+        }
+
+        drive_set(left_cmd, right_cmd);
 
         // --- INTAKE CONTROL (L1/L2) ---
         if (master.get_digital(DIGITAL_L1)) {

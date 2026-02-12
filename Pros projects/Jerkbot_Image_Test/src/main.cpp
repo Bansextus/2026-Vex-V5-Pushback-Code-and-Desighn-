@@ -231,12 +231,13 @@ static std::string g_driver_name;
 static bool g_dirty = true;
 
 void add_images_from_dir(const char* list_path, const char* store_prefix) {
-    char buffer[1024] = {0};
-    if (pros::usd::list_files(list_path, buffer, static_cast<int>(sizeof(buffer))) == PROS_ERR) {
+    std::vector<char> buffer(16384, '\0');
+    if (pros::usd::list_files(list_path, buffer.data(), static_cast<int>(buffer.size())) == PROS_ERR) {
         return;
     }
+    buffer.back() = '\0';
 
-    const char* start = buffer;
+    const char* start = buffer.data();
     while (*start) {
         const char* end = std::strchr(start, '\n');
         const std::size_t len = end ? static_cast<std::size_t>(end - start) : std::strlen(start);
