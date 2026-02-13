@@ -26,6 +26,7 @@
 
           <Button Content="Home" Tag="Home" Click="SectionButton_Click" Margin="0,0,0,10"/>
           <Button Content="Build &amp; Upload" Tag="Build" Click="SectionButton_Click" Margin="0,0,0,10"/>
+          <Button Content="Controller Mapping" Tag="Controls" Click="SectionButton_Click" Margin="0,0,0,10"/>
           <Button Content="Port Map" Tag="Port" Click="SectionButton_Click" Margin="0,0,0,10"/>
           <Button Content="SD Card" Tag="Sd" Click="SectionButton_Click" Margin="0,0,0,10"/>
           <Button Content="Field Replay" Tag="Field" Click="SectionButton_Click" Margin="0,0,0,10"/>
@@ -73,6 +74,72 @@
             </StackPanel>
           </Border>
         </StackPanel>
+      </Grid>
+
+      <Grid x:Name="ControlsPanel" Visibility="Collapsed">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <StackPanel>
+            <TextBlock Text="Controller Mapping" Foreground="{StaticResource TextBrush}" FontSize="36" FontWeight="Bold"/>
+
+            <Border Background="{StaticResource CardBrush}" Padding="18" CornerRadius="12" Margin="0,16,0,0">
+              <StackPanel>
+                <TextBlock Text="Map each Tahera action to a controller button." Foreground="{StaticResource SubBrush}" Margin="0,0,0,12"/>
+
+                <Grid Margin="0,0,0,4">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="250"/>
+                    <ColumnDefinition Width="220"/>
+                    <ColumnDefinition Width="250"/>
+                    <ColumnDefinition Width="220"/>
+                  </Grid.ColumnDefinitions>
+
+                  <TextBlock Grid.Column="0" Text="Intake In" VerticalAlignment="Center"/>
+                  <ComboBox x:Name="MapIntakeInCombo" Grid.Column="1" Margin="0,0,14,8"/>
+                  <TextBlock Grid.Column="2" Text="Intake Out" VerticalAlignment="Center"/>
+                  <ComboBox x:Name="MapIntakeOutCombo" Grid.Column="3" Margin="0,0,0,8"/>
+
+                  <TextBlock Grid.Column="0" Text="Outake Out" Margin="0,44,0,0" VerticalAlignment="Top"/>
+                  <ComboBox x:Name="MapOutakeOutCombo" Grid.Column="1" Margin="0,44,14,8" VerticalAlignment="Top"/>
+                  <TextBlock Grid.Column="2" Text="Outake In" Margin="0,44,0,0" VerticalAlignment="Top"/>
+                  <ComboBox x:Name="MapOutakeInCombo" Grid.Column="3" Margin="0,44,0,8" VerticalAlignment="Top"/>
+
+                  <TextBlock Grid.Column="0" Text="GPS Enable" Margin="0,88,0,0" VerticalAlignment="Top"/>
+                  <ComboBox x:Name="MapGpsEnableCombo" Grid.Column="1" Margin="0,88,14,8" VerticalAlignment="Top"/>
+                  <TextBlock Grid.Column="2" Text="GPS Disable" Margin="0,88,0,0" VerticalAlignment="Top"/>
+                  <ComboBox x:Name="MapGpsDisableCombo" Grid.Column="3" Margin="0,88,0,8" VerticalAlignment="Top"/>
+
+                  <TextBlock Grid.Column="0" Text="6 Wheel On" Margin="0,132,0,0" VerticalAlignment="Top"/>
+                  <ComboBox x:Name="MapSixWheelOnCombo" Grid.Column="1" Margin="0,132,14,8" VerticalAlignment="Top"/>
+                  <TextBlock Grid.Column="2" Text="6 Wheel Off" Margin="0,132,0,0" VerticalAlignment="Top"/>
+                  <ComboBox x:Name="MapSixWheelOffCombo" Grid.Column="3" Margin="0,132,0,8" VerticalAlignment="Top"/>
+                </Grid>
+
+                <TextBlock x:Name="MapConflictText" Foreground="#FFB8A3" Margin="0,8,0,0" TextWrapping="Wrap"/>
+              </StackPanel>
+            </Border>
+
+            <Border Background="{StaticResource CardBrush}" Padding="18" CornerRadius="12" Margin="0,16,0,0">
+              <StackPanel>
+                <TextBlock Text="Mapping Files" Foreground="{StaticResource SubBrush}"/>
+                <TextBlock Text="Repo File Path" Foreground="{StaticResource SubBrush}" Margin="0,10,0,0"/>
+                <TextBox x:Name="RepoMapPathTextBox" Margin="0,6,0,0"/>
+                <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                  <Button Content="Load Repo" Click="LoadRepoMap_Click" Margin="0,0,10,0"/>
+                  <Button Content="Save Repo" Click="SaveRepoMap_Click"/>
+                </StackPanel>
+
+                <TextBlock Text="SD File Path (optional)" Foreground="{StaticResource SubBrush}" Margin="0,14,0,0"/>
+                <TextBox x:Name="SdMapPathTextBox" Margin="0,6,0,0"/>
+                <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                  <Button Content="Load SD" Click="LoadSdMap_Click" Margin="0,0,10,0"/>
+                  <Button Content="Save SD" Click="SaveSdMap_Click" Margin="0,0,10,0"/>
+                  <Button Content="Reset Defaults" Click="ResetMapDefaults_Click"/>
+                </StackPanel>
+                <TextBlock x:Name="MapStatusText" Foreground="{StaticResource SubBrush}" Margin="0,12,0,0" TextWrapping="Wrap"/>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </ScrollViewer>
       </Grid>
 
       <Grid x:Name="PortPanel" Visibility="Collapsed">

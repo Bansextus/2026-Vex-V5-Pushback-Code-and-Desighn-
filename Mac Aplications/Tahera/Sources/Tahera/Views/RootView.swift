@@ -183,6 +183,8 @@ struct RootView: View {
             HomeView()
         case .build:
             BuildUploadView()
+        case .controls:
+            ControllerMappingView()
         case .portMap:
             PortMapView()
         case .sdCard:

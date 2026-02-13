@@ -23,6 +23,9 @@ final class TaheraModel: ObservableObject {
     @Published var brainPort: String = ""
 
     @Published var portMap: PortMap = PortMap()
+    @Published var controllerMapping: [ControllerAction: ControllerButton] =
+        Dictionary(uniqueKeysWithValues: ControllerAction.allCases.map { ($0, $0.defaultButton) })
+    @Published var controllerMappingStatus: String = ""
 
     // Password wall for repository settings/GitHub tools.
     @Published var repoSettingsUnlocked: Bool = false
@@ -40,6 +43,7 @@ final class TaheraModel: ObservableObject {
     @Published var releaseStatusIsSuccess: Bool = false
 
     private let repoSettingsPassword = "56Wrenches.782"
+    private let controllerMappingFileName = "controller_mapping.txt"
     private let busyQueue = DispatchQueue(label: "TaheraModel.BusyQueue")
     private var busyCount = 0
 
@@ -47,6 +51,7 @@ final class TaheraModel: ObservableObject {
         refreshSDStatus()
         refreshBrainStatus()
         loadReadme()
+        loadControllerMappingFromRepo()
     }
 
     func unlockRepositorySettings() {
@@ -611,5 +616,128 @@ final class TaheraModel: ObservableObject {
                 self.readmeContent = "README.md could not be loaded from:\n\(readmePath)\n\n\(error.localizedDescription)"
             }
         }
+    }
+
+    private func controllerMappingRepoPath() -> String {
+        URL(fileURLWithPath: repoPath)
+            .appendingPathComponent("Pros projects/Tahera_Project")
+            .appendingPathComponent(controllerMappingFileName)
+            .path
+    }
+
+    private func controllerMappingSDPath() -> String {
+        URL(fileURLWithPath: sdPath)
+            .appendingPathComponent(controllerMappingFileName)
+            .path
+    }
+
+    private func parseControllerMapping(_ contents: String) -> [ControllerAction: ControllerButton] {
+        var mapping = Dictionary(uniqueKeysWithValues: ControllerAction.allCases.map { ($0, $0.defaultButton) })
+        for rawLine in contents.components(separatedBy: .newlines) {
+            let line = rawLine.trimmingCharacters(in: .whitespacesAndNewlines)
+            if line.isEmpty || line.hasPrefix("#") {
+                continue
+            }
+            let parts = line.split(separator: "=", maxSplits: 1).map { String($0).trimmingCharacters(in: .whitespacesAndNewlines).uppercased() }
+            if parts.count != 2 {
+                continue
+            }
+            guard let action = ControllerAction(rawValue: parts[0]),
+                  let button = ControllerButton(rawValue: parts[1]) else {
+                continue
+            }
+            mapping[action] = button
+        }
+        return mapping
+    }
+
+    private func serializeControllerMapping() -> String {
+        var lines: [String] = [
+            "# Tahera controller mapping",
+            "# Edit in Tahera app or manually. Format: ACTION=BUTTON",
+        ]
+        for action in ControllerAction.allCases {
+            let button = controllerMapping[action] ?? action.defaultButton
+            lines.append("\(action.rawValue)=\(button.rawValue)")
+        }
+        lines.append("")
+        return lines.joined(separator: "\n")
+    }
+
+    private func loadControllerMapping(from path: String, sourceName: String) {
+        do {
+            let text = try String(contentsOfFile: path, encoding: .utf8)
+            let parsed = parseControllerMapping(text)
+            DispatchQueue.main.async {
+                self.controllerMapping = parsed
+                self.controllerMappingStatus = "Loaded from \(sourceName)"
+            }
+            appendLog("Controller mapping loaded from \(sourceName): \(path)")
+        } catch {
+            DispatchQueue.main.async {
+                self.controllerMappingStatus = "Could not load from \(sourceName)"
+            }
+            appendLog("Controller mapping load failed (\(sourceName)): \(error.localizedDescription)")
+        }
+    }
+
+    private func saveControllerMapping(to path: String, sourceName: String) {
+        let payload = serializeControllerMapping()
+        do {
+            let parent = URL(fileURLWithPath: path).deletingLastPathComponent().path
+            if !FileManager.default.fileExists(atPath: parent) {
+                try FileManager.default.createDirectory(atPath: parent, withIntermediateDirectories: true)
+            }
+            try payload.write(toFile: path, atomically: true, encoding: .utf8)
+            DispatchQueue.main.async {
+                self.controllerMappingStatus = "Saved to \(sourceName)"
+            }
+            appendLog("Controller mapping saved to \(sourceName): \(path)")
+        } catch {
+            DispatchQueue.main.async {
+                self.controllerMappingStatus = "Save failed for \(sourceName)"
+            }
+            appendLog("Controller mapping save failed (\(sourceName)): \(error.localizedDescription)")
+        }
+    }
+
+    func resetControllerMappingDefaults() {
+        DispatchQueue.main.async {
+            self.controllerMapping = Dictionary(uniqueKeysWithValues: ControllerAction.allCases.map { ($0, $0.defaultButton) })
+            self.controllerMappingStatus = "Reset to defaults"
+        }
+    }
+
+    func loadControllerMappingFromRepo() {
+        loadControllerMapping(from: controllerMappingRepoPath(), sourceName: "repo")
+    }
+
+    func saveControllerMappingToRepo() {
+        saveControllerMapping(to: controllerMappingRepoPath(), sourceName: "repo")
+    }
+
+    func loadControllerMappingFromSD() {
+        loadControllerMapping(from: controllerMappingSDPath(), sourceName: "SD")
+    }
+
+    func saveControllerMappingToSD() {
+        saveControllerMapping(to: controllerMappingSDPath(), sourceName: "SD")
+    }
+
+    func controllerMappingConflicts() -> [(ControllerButton, [ControllerAction])] {
+        var grouped: [ControllerButton: [ControllerAction]] = [:]
+        for action in ControllerAction.allCases {
+            let button = controllerMapping[action] ?? action.defaultButton
+            grouped[button, default: []].append(action)
+        }
+        return grouped
+            .filter { $0.value.count > 1 }
+            .sorted { $0.key.rawValue < $1.key.rawValue }
+    }
+
+    func setControllerButton(_ button: ControllerButton, for action: ControllerAction) {
+        var next = controllerMapping
+        next[action] = button
+        controllerMapping = next
     }
 }

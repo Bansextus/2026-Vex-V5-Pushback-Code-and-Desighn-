@@ -8,6 +8,7 @@
 #include <cmath>
 #include <vector>
 #include <cstring>
+#include <cctype>
 
 namespace {
 constexpr char kLoadingIconName[] = "loading_icon.bmp";
@@ -110,6 +111,7 @@ constexpr char kSlot1File[] = "auton_plans_slot1.txt";
 constexpr char kSlot2File[] = "auton_plans_slot2.txt";
 constexpr char kSlot3File[] = "auton_plans_slot3.txt";
 constexpr char kSlotIndexFile[] = "auton_slot.txt";
+constexpr char kControllerMappingFile[] = "controller_mapping.txt";
 static int g_active_slot = 0;
 constexpr char kUiConfigName[] = "ui_images.txt";
 constexpr char kDefaultSplash[] = "loading_icon.bmp";
@@ -126,6 +128,62 @@ std::uint32_t g_last_ui_ms = 0;
 std::uint32_t g_auton_end_ms = 0;
 bool g_auton_abort = false;
 constexpr std::uint32_t kSelectionUiTimeoutMs = 5000;
+
+enum class ControllerAction {
+    INTAKE_IN = 0,
+    INTAKE_OUT,
+    OUTAKE_OUT,
+    OUTAKE_IN,
+    GPS_ENABLE,
+    GPS_DISABLE,
+    SIX_WHEEL_ON,
+    SIX_WHEEL_OFF
+};
+
+constexpr int kControllerActionCount = 8;
+
+pros::controller_digital_e_t g_controller_mapping[kControllerActionCount] = {
+    DIGITAL_L1,
+    DIGITAL_L2,
+    DIGITAL_R1,
+    DIGITAL_R2,
+    DIGITAL_A,
+    DIGITAL_B,
+    DIGITAL_Y,
+    DIGITAL_X
+};
+
+const char* controller_action_key(ControllerAction action) {
+    switch (action) {
+        case ControllerAction::INTAKE_IN: return "INTAKE_IN";
+        case ControllerAction::INTAKE_OUT: return "INTAKE_OUT";
+        case ControllerAction::OUTAKE_OUT: return "OUTAKE_OUT";
+        case ControllerAction::OUTAKE_IN: return "OUTAKE_IN";
+        case ControllerAction::GPS_ENABLE: return "GPS_ENABLE";
+        case ControllerAction::GPS_DISABLE: return "GPS_DISABLE";
+        case ControllerAction::SIX_WHEEL_ON: return "SIX_WHEEL_ON";
+        case ControllerAction::SIX_WHEEL_OFF: return "SIX_WHEEL_OFF";
+        default: return "";
+    }
+}
+
+pros::controller_digital_e_t default_controller_button(ControllerAction action) {
+    switch (action) {
+        case ControllerAction::INTAKE_IN: return DIGITAL_L1;
+        case ControllerAction::INTAKE_OUT: return DIGITAL_L2;
+        case ControllerAction::OUTAKE_OUT: return DIGITAL_R1;
+        case ControllerAction::OUTAKE_IN: return DIGITAL_R2;
+        case ControllerAction::GPS_ENABLE: return DIGITAL_A;
+        case ControllerAction::GPS_DISABLE: return DIGITAL_B;
+        case ControllerAction::SIX_WHEEL_ON: return DIGITAL_Y;
+        case ControllerAction::SIX_WHEEL_OFF: return DIGITAL_X;
+        default: return DIGITAL_A;
+    }
+}
+
+pros::controller_digital_e_t mapped_button(ControllerAction action) {
+    return g_controller_mapping[static_cast<int>(action)];
+}
 
 enum class StepType {
     EMPTY,
@@ -269,6 +327,113 @@ void chomp_line(char* line) {
         line[len - 1] = '\0';
         --len;
     }
+}
+
+std::string trim_copy(const std::string& value) {
+    std::size_t start = 0;
+    while (start < value.size() && std::isspace(static_cast<unsigned char>(value[start]))) {
+        ++start;
+    }
+    std::size_t end = value.size();
+    while (end > start && std::isspace(static_cast<unsigned char>(value[end - 1]))) {
+        --end;
+    }
+    return value.substr(start, end - start);
+}
+
+std::string uppercase_copy(std::string value) {
+    for (char& ch : value) {
+        ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+    }
+    return value;
+}
+
+bool parse_controller_action(const std::string& key, ControllerAction* out_action) {
+    if (!out_action) {
+        return false;
+    }
+    for (int idx = 0; idx < kControllerActionCount; ++idx) {
+        const auto action = static_cast<ControllerAction>(idx);
+        if (key == controller_action_key(action)) {
+            *out_action = action;
+            return true;
+        }
+    }
+    return false;
+}
+
+bool parse_controller_button(const std::string& key, pros::controller_digital_e_t* out_button) {
+    if (!out_button) {
+        return false;
+    }
+    struct Entry {
+        const char* name;
+        pros::controller_digital_e_t button;
+    };
+    static constexpr Entry kEntries[] = {
+        {"L1", DIGITAL_L1},
+        {"L2", DIGITAL_L2},
+        {"R1", DIGITAL_R1},
+        {"R2", DIGITAL_R2},
+        {"A", DIGITAL_A},
+        {"B", DIGITAL_B},
+        {"X", DIGITAL_X},
+        {"Y", DIGITAL_Y},
+        {"UP", DIGITAL_UP},
+        {"DOWN", DIGITAL_DOWN},
+        {"LEFT", DIGITAL_LEFT},
+        {"RIGHT", DIGITAL_RIGHT},
+    };
+    for (const auto& entry : kEntries) {
+        if (key == entry.name) {
+            *out_button = entry.button;
+            return true;
+        }
+    }
+    return false;
+}
+
+void reset_controller_mapping_defaults() {
+    for (int idx = 0; idx < kControllerActionCount; ++idx) {
+        const auto action = static_cast<ControllerAction>(idx);
+        g_controller_mapping[idx] = default_controller_button(action);
+    }
+}
+
+void load_controller_mapping_from_sd() {
+    reset_controller_mapping_defaults();
+
+    FILE* file = sd_open(kControllerMappingFile, "r");
+    if (!file) {
+        return;
+    }
+
+    char line[96];
+    while (std::fgets(line, sizeof(line), file)) {
+        chomp_line(line);
+        std::string entry = trim_copy(line);
+        if (entry.empty() || entry[0] == '#') {
+            continue;
+        }
+
+        const std::size_t eq = entry.find('=');
+        if (eq == std::string::npos) {
+            continue;
+        }
+
+        const std::string action_key = uppercase_copy(trim_copy(entry.substr(0, eq)));
+        const std::string button_key = uppercase_copy(trim_copy(entry.substr(eq + 1)));
+
+        ControllerAction action = ControllerAction::INTAKE_IN;
+        pros::controller_digital_e_t button = DIGITAL_L1;
+        if (!parse_controller_action(action_key, &action) || !parse_controller_button(button_key, &button)) {
+            continue;
+        }
+
+        g_controller_mapping[static_cast<int>(action)] = button;
+    }
+
+    std::fclose(file);
 }
 
 bool is_images_path(const std::string& path) {
@@ -647,15 +812,15 @@ void auton_watchdog_task_fn(void*) {
 }
 
 void update_auton_mode_from_controller() {
-    if (master.get_digital_new_press(DIGITAL_A)) {
+    if (master.get_digital_new_press(mapped_button(ControllerAction::GPS_ENABLE))) {
         g_gps_drive_enabled = true;
-    } else if (master.get_digital_new_press(DIGITAL_B)) {
+    } else if (master.get_digital_new_press(mapped_button(ControllerAction::GPS_DISABLE))) {
         g_gps_drive_enabled = false;
     }
 
-    if (master.get_digital_new_press(DIGITAL_Y)) {
+    if (master.get_digital_new_press(mapped_button(ControllerAction::SIX_WHEEL_ON))) {
         g_six_wheel_drive_enabled = true;
-    } else if (master.get_digital_new_press(DIGITAL_X)) {
+    } else if (master.get_digital_new_press(mapped_button(ControllerAction::SIX_WHEEL_OFF))) {
         g_six_wheel_drive_enabled = false;
     }
 }
@@ -814,6 +979,7 @@ void run_simple_auton_fallback() {
 void initialize() {
     pros::lcd::initialize();
     load_ui_images();
+    load_controller_mapping_from_sd();
     show_init_splash();
     pros::delay(kSplashHoldMs);
     imu.reset(true);
@@ -921,18 +1087,18 @@ void opcontrol() {
         drive_set(left_cmd, right_cmd);
 
         // --- LEFT SIDE INTAKE + OUTTAKE (L1/L2) ---
-        if (master.get_digital(DIGITAL_L1)) {
+        if (master.get_digital(mapped_button(ControllerAction::INTAKE_IN))) {
             intake.move(127);
-        } else if (master.get_digital(DIGITAL_L2)) {
+        } else if (master.get_digital(mapped_button(ControllerAction::INTAKE_OUT))) {
             intake.move(-127);
         } else {
             intake.brake();
         }
 
         // --- RIGHT SIDE INTAKE + OUTTAKE (R1/R2) ---
-        if (master.get_digital(DIGITAL_R1)) {
+        if (master.get_digital(mapped_button(ControllerAction::OUTAKE_OUT))) {
             outake.move(127);
-        } else if (master.get_digital(DIGITAL_R2)) {
+        } else if (master.get_digital(mapped_button(ControllerAction::OUTAKE_IN))) {
             outake.move(-127);
         } else {
             outake.brake();

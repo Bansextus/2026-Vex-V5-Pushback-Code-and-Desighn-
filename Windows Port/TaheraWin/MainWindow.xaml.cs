@@ -45,6 +45,28 @@ namespace Tahera {
             { "Image Selector", ("Pros projects/Jerkbot_Image_Test", 3) },
             { "Basic Bonkers", ("Pros projects/Basic_Bonkers_PROS", 4) }
         };
+        private readonly string[] _controllerButtons = { "L1", "L2", "R1", "R2", "A", "B", "X", "Y", "UP", "DOWN", "LEFT", "RIGHT" };
+        private readonly Dictionary<string, string> _controllerDefaults = new() {
+            { "INTAKE_IN", "L1" },
+            { "INTAKE_OUT", "L2" },
+            { "OUTAKE_OUT", "R1" },
+            { "OUTAKE_IN", "R2" },
+            { "GPS_ENABLE", "A" },
+            { "GPS_DISABLE", "B" },
+            { "SIX_WHEEL_ON", "Y" },
+            { "SIX_WHEEL_OFF", "X" }
+        };
+        private readonly Dictionary<string, string> _controllerActionTitles = new() {
+            { "INTAKE_IN", "Intake In" },
+            { "INTAKE_OUT", "Intake Out" },
+            { "OUTAKE_OUT", "Outake Out" },
+            { "OUTAKE_IN", "Outake In" },
+            { "GPS_ENABLE", "GPS Enable" },
+            { "GPS_DISABLE", "GPS Disable" },
+            { "SIX_WHEEL_ON", "6 Wheel On" },
+            { "SIX_WHEEL_OFF", "6 Wheel Off" }
+        };
+        private readonly Dictionary<string, string> _controllerMap = new();
 
         public MainWindow() {
             InitializeComponent();
@@ -57,6 +79,7 @@ namespace Tahera {
             LoadReadmeLogo();
             LoadFieldImage();
             LoadPortBrainImage();
+            InitializeControllerMappingUi();
             RedrawPortMapOverlay();
             ResetReplayState("Load a replay log (.txt or .csv) to visualize path data.");
             UpdateRepoBusyUi();
@@ -170,6 +193,7 @@ namespace Tahera {
         private void ShowSection(string tag) {
             HomePanel.Visibility = Visibility.Collapsed;
             BuildPanel.Visibility = Visibility.Collapsed;
+            ControlsPanel.Visibility = Visibility.Collapsed;
             PortPanel.Visibility = Visibility.Collapsed;
             SdPanel.Visibility = Visibility.Collapsed;
             FieldPanel.Visibility = Visibility.Collapsed;
@@ -179,6 +203,12 @@ namespace Tahera {
             switch (tag) {
                 case "Build":
                     BuildPanel.Visibility = Visibility.Visible;
+                    break;
+                case "Controls":
+                    ControlsPanel.Visibility = Visibility.Visible;
+                    if (string.IsNullOrWhiteSpace(RepoMapPathTextBox.Text)) {
+                        RepoMapPathTextBox.Text = DefaultRepoControllerMapPath();
+                    }
                     break;
                 case "Port":
                     PortPanel.Visibility = Visibility.Visible;
@@ -244,6 +274,198 @@ namespace Tahera {
                 var upload = await RunCommandAsync("pros", new[] { "upload", "--slot", p.Value.slot.ToString(CultureInfo.InvariantCulture) }, p.Value.path, timeoutSeconds: 600);
                 AppendOutput(upload.output);
             }
+        }
+
+        private Dictionary<string, ComboBox> ControllerMapCombos() {
+            return new Dictionary<string, ComboBox> {
+                { "INTAKE_IN", MapIntakeInCombo },
+                { "INTAKE_OUT", MapIntakeOutCombo },
+                { "OUTAKE_OUT", MapOutakeOutCombo },
+                { "OUTAKE_IN", MapOutakeInCombo },
+                { "GPS_ENABLE", MapGpsEnableCombo },
+                { "GPS_DISABLE", MapGpsDisableCombo },
+                { "SIX_WHEEL_ON", MapSixWheelOnCombo },
+                { "SIX_WHEEL_OFF", MapSixWheelOffCombo }
+            };
+        }
+
+        private string DefaultRepoControllerMapPath() {
+            return Path.Combine(RepoPath, "Pros projects", "Tahera_Project", "controller_mapping.txt");
+        }
+
+        private void InitializeControllerMappingUi() {
+            foreach (var combo in ControllerMapCombos().Values) {
+                combo.ItemsSource = _controllerButtons;
+                combo.SelectionChanged += ControllerMapCombo_SelectionChanged;
+            }
+
+            RepoMapPathTextBox.Text = DefaultRepoControllerMapPath();
+            SdMapPathTextBox.Text = @"E:\controller_mapping.txt";
+
+            ResetControllerMappingDefaults(setStatus: false);
+            if (File.Exists(RepoMapPathTextBox.Text.Trim())) {
+                LoadControllerMappingFromFile(RepoMapPathTextBox.Text.Trim(), "repo", showMessage: false);
+            } else {
+                MapStatusText.Text = "Using default mapping.";
+            }
+            UpdateControllerMapConflicts();
+        }
+
+        private void ResetControllerMappingDefaults(bool setStatus = true) {
+            _controllerMap.Clear();
+            foreach (var pair in _controllerDefaults) {
+                _controllerMap[pair.Key] = pair.Value;
+            }
+            ApplyControllerMappingToUi();
+            UpdateControllerMapConflicts();
+            if (setStatus) {
+                MapStatusText.Text = "Mapping reset to defaults.";
+            }
+        }
+
+        private void ApplyControllerMappingToUi() {
+            foreach (var pair in ControllerMapCombos()) {
+                if (_controllerMap.TryGetValue(pair.Key, out var button) && _controllerButtons.Contains(button)) {
+                    pair.Value.SelectedItem = button;
+                } else {
+                    pair.Value.SelectedItem = _controllerDefaults[pair.Key];
+                }
+            }
+        }
+
+        private void CaptureControllerMappingFromUi() {
+            foreach (var pair in ControllerMapCombos()) {
+                if (pair.Value.SelectedItem is string button && _controllerButtons.Contains(button)) {
+                    _controllerMap[pair.Key] = button;
+                } else {
+                    _controllerMap[pair.Key] = _controllerDefaults[pair.Key];
+                }
+            }
+        }
+
+        private void UpdateControllerMapConflicts() {
+            var conflicts = _controllerMap
+                .GroupBy(x => x.Value)
+                .Where(group => group.Count() > 1)
+                .OrderBy(group => group.Key)
+                .ToList();
+
+            if (conflicts.Count == 0) {
+                MapConflictText.Text = "No mapping conflicts.";
+                return;
+            }
+
+            var lines = conflicts.Select(group => {
+                var actions = group
+                    .Select(entry => _controllerActionTitles.TryGetValue(entry.Key, out var title) ? title : entry.Key)
+                    .OrderBy(name => name);
+                return $"{group.Key}: {string.Join(", ", actions)}";
+            });
+            MapConflictText.Text = "Conflicts -> " + string.Join(" | ", lines);
+        }
+
+        private string BuildControllerMappingText() {
+            var sb = new StringBuilder();
+            sb.AppendLine("# Tahera controller mapping");
+            sb.AppendLine("# Format: ACTION=BUTTON");
+            sb.AppendLine("# Valid buttons: L1, L2, R1, R2, A, B, X, Y, UP, DOWN, LEFT, RIGHT");
+            sb.AppendLine();
+            foreach (var key in _controllerDefaults.Keys) {
+                var value = _controllerMap.TryGetValue(key, out var mapped) ? mapped : _controllerDefaults[key];
+                sb.AppendLine($"{key}={value}");
+            }
+            return sb.ToString();
+        }
+
+        private bool SaveControllerMappingToFile(string path, string sourceLabel) {
+            CaptureControllerMappingFromUi();
+            try {
+                if (string.IsNullOrWhiteSpace(path)) {
+                    MapStatusText.Text = $"Missing {sourceLabel} path.";
+                    return false;
+                }
+                var dir = Path.GetDirectoryName(path);
+                if (!string.IsNullOrWhiteSpace(dir) && !Directory.Exists(dir)) {
+                    Directory.CreateDirectory(dir);
+                }
+                File.WriteAllText(path, BuildControllerMappingText());
+                MapStatusText.Text = $"Saved mapping to {sourceLabel}: {path}";
+                AppendOutput($"Controller mapping saved to {sourceLabel}: {path}");
+                UpdateControllerMapConflicts();
+                return true;
+            } catch (Exception ex) {
+                MapStatusText.Text = $"Save failed ({sourceLabel}): {ex.Message}";
+                AppendOutput(MapStatusText.Text);
+                return false;
+            }
+        }
+
+        private bool LoadControllerMappingFromFile(string path, string sourceLabel, bool showMessage = true) {
+            try {
+                if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) {
+                    if (showMessage) {
+                        MapStatusText.Text = $"Mapping file not found ({sourceLabel}).";
+                    }
+                    return false;
+                }
+
+                var map = new Dictionary<string, string>(_controllerDefaults);
+                foreach (var raw in File.ReadAllLines(path)) {
+                    var line = raw.Trim();
+                    if (line.Length == 0 || line.StartsWith("#")) continue;
+
+                    var split = line.Split('=', 2);
+                    if (split.Length != 2) continue;
+                    var action = split[0].Trim().ToUpperInvariant();
+                    var button = split[1].Trim().ToUpperInvariant();
+                    if (!_controllerDefaults.ContainsKey(action)) continue;
+                    if (!_controllerButtons.Contains(button)) continue;
+                    map[action] = button;
+                }
+
+                _controllerMap.Clear();
+                foreach (var pair in map) {
+                    _controllerMap[pair.Key] = pair.Value;
+                }
+                ApplyControllerMappingToUi();
+                UpdateControllerMapConflicts();
+                if (showMessage) {
+                    MapStatusText.Text = $"Loaded mapping from {sourceLabel}: {path}";
+                }
+                AppendOutput($"Controller mapping loaded from {sourceLabel}: {path}");
+                return true;
+            } catch (Exception ex) {
+                if (showMessage) {
+                    MapStatusText.Text = $"Load failed ({sourceLabel}): {ex.Message}";
+                }
+                AppendOutput($"Controller mapping load failed ({sourceLabel}): {ex.Message}");
+                return false;
+            }
+        }
+
+        private void ControllerMapCombo_SelectionChanged(object sender, SelectionChangedEventArgs e) {
+            CaptureControllerMappingFromUi();
+            UpdateControllerMapConflicts();
+        }
+
+        private void LoadRepoMap_Click(object sender, RoutedEventArgs e) {
+            LoadControllerMappingFromFile(RepoMapPathTextBox.Text.Trim(), "repo");
+        }
+
+        private void SaveRepoMap_Click(object sender, RoutedEventArgs e) {
+            SaveControllerMappingToFile(RepoMapPathTextBox.Text.Trim(), "repo");
+        }
+
+        private void LoadSdMap_Click(object sender, RoutedEventArgs e) {
+            LoadControllerMappingFromFile(SdMapPathTextBox.Text.Trim(), "SD");
+        }
+
+        private void SaveSdMap_Click(object sender, RoutedEventArgs e) {
+            SaveControllerMappingToFile(SdMapPathTextBox.Text.Trim(), "SD");
+        }
+
+        private void ResetMapDefaults_Click(object sender, RoutedEventArgs e) {
+            ResetControllerMappingDefaults();
         }
 
         private void UnlockRepoSettings_Click(object sender, RoutedEventArgs e) {

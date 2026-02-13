@@ -3,6 +3,7 @@ import Foundation
 enum AppSection: String, CaseIterable, Identifiable {
     case home = "Home"
     case build = "Build & Upload"
+    case controls = "Controller Mapping"
     case portMap = "Port Map"
     case sdCard = "SD Card"
     case field = "Field Replay"
@@ -17,6 +18,8 @@ enum AppSection: String, CaseIterable, Identifiable {
             return "house.fill"
         case .build:
             return "hammer.fill"
+        case .controls:
+            return "gamecontroller.fill"
         case .portMap:
             return "point.3.connected.trianglepath.dotted"
         case .sdCard:
@@ -58,4 +61,76 @@ struct PortMap {
     var intakeRight = PortValue(value: 8, reversed: false)
     var imu = 11
     var gps = 10
+}
+
+enum ControllerButton: String, CaseIterable, Identifiable {
+    case l1 = "L1"
+    case l2 = "L2"
+    case r1 = "R1"
+    case r2 = "R2"
+    case a = "A"
+    case b = "B"
+    case x = "X"
+    case y = "Y"
+    case up = "UP"
+    case down = "DOWN"
+    case left = "LEFT"
+    case right = "RIGHT"
+
+    var id: String { rawValue }
+}
+
+enum ControllerAction: String, CaseIterable, Identifiable {
+    case intakeIn = "INTAKE_IN"
+    case intakeOut = "INTAKE_OUT"
+    case outakeOut = "OUTAKE_OUT"
+    case outakeIn = "OUTAKE_IN"
+    case gpsEnable = "GPS_ENABLE"
+    case gpsDisable = "GPS_DISABLE"
+    case sixWheelOn = "SIX_WHEEL_ON"
+    case sixWheelOff = "SIX_WHEEL_OFF"
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .intakeIn:
+            return "Intake In"
+        case .intakeOut:
+            return "Intake Out"
+        case .outakeOut:
+            return "Outake Out"
+        case .outakeIn:
+            return "Outake In"
+        case .gpsEnable:
+            return "GPS Drive Enable"
+        case .gpsDisable:
+            return "GPS Drive Disable"
+        case .sixWheelOn:
+            return "6 Wheel On"
+        case .sixWheelOff:
+            return "6 Wheel Off"
+        }
+    }
+
+    var defaultButton: ControllerButton {
+        switch self {
+        case .intakeIn:
+            return .l1
+        case .intakeOut:
+            return .l2
+        case .outakeOut:
+            return .r1
+        case .outakeIn:
+            return .r2
+        case .gpsEnable:
+            return .a
+        case .gpsDisable:
+            return .b
+        case .sixWheelOn:
+            return .y
+        case .sixWheelOff:
+            return .x
+        }
+    }
 }

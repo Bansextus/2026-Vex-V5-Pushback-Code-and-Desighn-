@@ -22,6 +22,7 @@ The system records joystick samples continuously while the save file creation st
 - `auton_slot.txt` — the active slot number
 - `auton_plans_slot1.txt`, `auton_plans_slot2.txt`, `auton_plans_slot3.txt` — saved auton steps
 - `bonkers_log_XXXX.txt` — controller logs (from Basic Bonkers)
+- `controller_mapping.txt` — custom Tahera button mapping (optional)
 
 ## Quick Start (V5 Brain)
 1. The user needs to install both the PROS software and its command-line interface.
