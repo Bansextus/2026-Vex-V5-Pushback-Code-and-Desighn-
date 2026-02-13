@@ -86,8 +86,8 @@ pros::MotorGroup right_drive({4, 6}, pros::v5::MotorGears::blue);
 pros::Motor left_middle(2, pros::v5::MotorGears::blue);
 pros::Motor right_middle(-5, pros::v5::MotorGears::blue);
 
-pros::Motor intake_left(7, pros::v5::MotorGears::blue);
-pros::Motor intake_right(8, pros::v5::MotorGears::blue);
+pros::Motor intake(7, pros::v5::MotorGears::blue);
+pros::Motor outake(8, pros::v5::MotorGears::blue);
 
 pros::Controller master(pros::E_CONTROLLER_MASTER);
 pros::Imu imu(11);
@@ -368,8 +368,8 @@ void drive_brake() {
 
 void stop_all_motors() {
     drive_brake();
-    intake_left.brake();
-    intake_right.brake();
+    intake.brake();
+    outake.brake();
 }
 
 bool draw_named_image(const std::string& name) {
@@ -543,20 +543,20 @@ void run_selected_auton() {
                         }
                         break;
                     case StepType::INTAKE_ON:
-                        intake_left.move(127);
-                        intake_right.move(127);
+                        intake.move(127);
+                        outake.move(127);
                         break;
                     case StepType::INTAKE_OFF:
-                        intake_left.brake();
-                        intake_right.brake();
+                        intake.brake();
+                        outake.brake();
                         break;
                     case StepType::OUTTAKE_ON:
-                        intake_left.move(-127);
-                        intake_right.move(-127);
+                        intake.move(-127);
+                        outake.move(-127);
                         break;
                     case StepType::OUTTAKE_OFF:
-                        intake_left.brake();
-                        intake_right.brake();
+                        intake.brake();
+                        outake.brake();
                         break;
                 }
                 if (auton_time_up()) break;
@@ -597,20 +597,20 @@ void run_selected_auton() {
                         }
                         break;
                     case StepType::INTAKE_ON:
-                        intake_left.move(127);
-                        intake_right.move(127);
+                        intake.move(127);
+                        outake.move(127);
                         break;
                     case StepType::INTAKE_OFF:
-                        intake_left.brake();
-                        intake_right.brake();
+                        intake.brake();
+                        outake.brake();
                         break;
                     case StepType::OUTTAKE_ON:
-                        intake_left.move(-127);
-                        intake_right.move(-127);
+                        intake.move(-127);
+                        outake.move(-127);
                         break;
                     case StepType::OUTTAKE_OFF:
-                        intake_left.brake();
-                        intake_right.brake();
+                        intake.brake();
+                        outake.brake();
                         break;
                 }
                 if (auton_time_up()) break;
@@ -922,20 +922,20 @@ void opcontrol() {
 
         // --- LEFT SIDE INTAKE + OUTTAKE (L1/L2) ---
         if (master.get_digital(DIGITAL_L1)) {
-            intake_left.move(127);
+            intake.move(127);
         } else if (master.get_digital(DIGITAL_L2)) {
-            intake_left.move(-127);
+            intake.move(-127);
         } else {
-            intake_left.brake();
+            intake.brake();
         }
 
         // --- RIGHT SIDE INTAKE + OUTTAKE (R1/R2) ---
         if (master.get_digital(DIGITAL_R1)) {
-            intake_right.move(127);
+            outake.move(127);
         } else if (master.get_digital(DIGITAL_R2)) {
-            intake_right.move(-127);
+            outake.move(-127);
         } else {
-            intake_right.brake();
+            outake.brake();
         }
 
         pros::delay(20);

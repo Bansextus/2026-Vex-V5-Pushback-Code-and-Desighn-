@@ -1,0 +1,12 @@
+<Application x:Class="Tahera.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             StartupUri="MainWindow.xaml">
+  <Application.Resources>
+    <SolidColorBrush x:Key="BgBrush" Color="#101D2F" />
+    <SolidColorBrush x:Key="CardBrush" Color="#1A2D44" />
+    <SolidColorBrush x:Key="AccentBrush" Color="#4CD7A8" />
+    <SolidColorBrush x:Key="TextBrush" Color="#E7EEF7" />
+    <SolidColorBrush x:Key="SubBrush" Color="#B2C1D1" />
+  </Application.Resources>
+</Application>
