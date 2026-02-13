@@ -19,10 +19,10 @@ struct ReadmeView: View {
 
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Tahera Project Readme")
-                                .font(.system(size: 24, weight: .bold, design: .rounded))
+                                .font(.system(size: 28, weight: .bold, design: .rounded))
                                 .foregroundColor(Theme.text)
                             Text("Loaded from README.md in your repository (GitHub-tracked).")
-                                .font(.system(size: 14, weight: .medium))
+                                .font(.system(size: 17, weight: .medium))
                                 .foregroundColor(Theme.subtext)
                         }
 
@@ -43,11 +43,11 @@ struct ReadmeView: View {
                 Card {
                     if model.readmeContent.isEmpty {
                         Text("README is empty.")
-                            .font(.system(size: 15, weight: .medium))
+                            .font(.system(size: 18, weight: .medium))
                             .foregroundColor(Theme.subtext)
                     } else {
                         Text(model.readmeContent)
-                            .font(.system(size: 14, weight: .regular, design: .monospaced))
+                            .font(.system(size: 16, weight: .regular, design: .monospaced))
                             .foregroundColor(Theme.subtext)
                             .textSelection(.enabled)
                             .frame(maxWidth: .infinity, alignment: .leading)

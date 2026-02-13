@@ -2,8 +2,10 @@ using Microsoft.Win32;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
@@ -14,10 +16,27 @@ namespace Tahera {
         private const double ReplayTrackWidthIn = 12.0;
         private const double ReplayMaxSpeedInPerS = 60.0;
         private const double ReplayDtFallback = 0.02;
+        private static readonly double[] TopPortX = { 0.162, 0.225, 0.289, 0.351, 0.414, 0.508, 0.571, 0.634, 0.697, 0.760 };
+        private static readonly double[] BottomPortX = { 0.162, 0.225, 0.289, 0.351, 0.414, 0.508, 0.571, 0.634, 0.697, 0.760 };
+        private const double TopPortY = 0.086;
+        private const double BottomPortY = 0.922;
 
         private bool _repoUnlocked = false;
         private bool _suppressReplaySliderEvent = false;
+        private int _repoBusyCount = 0;
         private readonly List<ReplayPose> _replayPoses = new();
+        private readonly List<PortAssignment> _portAssignments = new() {
+            new("L1", "Left Outer 1", 1, Color.FromRgb(64, 220, 198)),
+            new("L2", "Left Outer 2", 3, Color.FromRgb(87, 200, 255)),
+            new("LM", "Left Middle", 2, Color.FromRgb(124, 216, 255)),
+            new("R1", "Right Outer 1", 4, Color.FromRgb(123, 255, 158)),
+            new("R2", "Right Outer 2", 6, Color.FromRgb(155, 255, 131)),
+            new("RM", "Right Middle", 5, Color.FromRgb(197, 255, 122)),
+            new("IN", "Intake", 7, Color.FromRgb(255, 202, 111)),
+            new("OUT", "Outake", 8, Color.FromRgb(255, 167, 106)),
+            new("IMU", "Inertial", 11, Color.FromRgb(212, 194, 255)),
+            new("GPS", "GPS", 10, Color.FromRgb(255, 193, 234))
+        };
 
         private readonly Dictionary<string, (string path, int slot)> _projects = new() {
             { "The Tahera Sequence", ("Pros projects/Tahera_Project", 1) },
@@ -36,7 +55,10 @@ namespace Tahera {
             LoadReadme();
             LoadReadmeLogo();
             LoadFieldImage();
+            LoadPortBrainImage();
+            RedrawPortMapOverlay();
             ResetReplayState("Load a replay log (.txt or .csv) to visualize path data.");
+            UpdateRepoBusyUi();
         }
 
         private string RepoPath => RepoPathTextBox.Text.Trim();
@@ -98,6 +120,46 @@ namespace Tahera {
             OutputTextBox.ScrollToEnd();
         }
 
+        private void AppendReleaseLog(string text) {
+            var line = $"[{DateTimeOffset.Now:yyyy-MM-ddTHH:mm:sszzz}] {text}";
+            ReleaseLogTextBox.AppendText(line + Environment.NewLine);
+            ReleaseLogTextBox.ScrollToEnd();
+        }
+
+        private void SetReleaseStatus(bool? success, string message) {
+            ReleaseStatusText.Text = message;
+            if (success == true) {
+                ReleaseStatusText.Foreground = new SolidColorBrush(Color.FromRgb(76, 215, 168));
+            } else if (success == false) {
+                ReleaseStatusText.Foreground = new SolidColorBrush(Color.FromRgb(255, 110, 110));
+            } else {
+                ReleaseStatusText.Foreground = (Brush)FindResource("SubBrush");
+            }
+        }
+
+        private bool IsRepoBusy => _repoBusyCount > 0;
+
+        private void BeginRepoAction() {
+            _repoBusyCount++;
+            UpdateRepoBusyUi();
+        }
+
+        private void EndRepoAction() {
+            _repoBusyCount = Math.Max(0, _repoBusyCount - 1);
+            UpdateRepoBusyUi();
+        }
+
+        private void UpdateRepoBusyUi() {
+            var busy = IsRepoBusy;
+            RepoBusyText.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
+            GitCommitButton.IsEnabled = !busy;
+            GitPushButton.IsEnabled = !busy;
+            GitTagPushButton.IsEnabled = !busy;
+            GitCreateReleaseButton.IsEnabled = !busy;
+            GitLockButton.IsEnabled = !busy;
+            ClearReleaseLogButton.IsEnabled = !busy;
+        }
+
         private void ShowSection(string tag) {
             HomePanel.Visibility = Visibility.Collapsed;
             BuildPanel.Visibility = Visibility.Collapsed;
@@ -113,6 +175,8 @@ namespace Tahera {
                     break;
                 case "Port":
                     PortPanel.Visibility = Visibility.Visible;
+                    LoadPortBrainImage();
+                    RedrawPortMapOverlay();
                     break;
                 case "Sd":
                     SdPanel.Visibility = Visibility.Visible;
@@ -204,49 +268,132 @@ namespace Tahera {
 
         private async void GitCommit_Click(object sender, RoutedEventArgs e) {
             if (!EnsureUnlocked()) return;
+            if (IsRepoBusy) return;
             var msg = CommitMessageTextBox.Text.Trim();
             if (msg.Length == 0) return;
-            AppendOutput("$ git add -A");
-            var addRes = await RunCommandAsync("git", new[] { "add", "-A" }, RepoPath, timeoutSeconds: 60, nonInteractive: true);
-            AppendOutput(addRes.output);
-            if (addRes.code != 0) return;
-            AppendOutput("$ git commit");
-            var result = await RunCommandAsync("git", new[] { "commit", "-m", msg }, RepoPath, timeoutSeconds: 90, nonInteractive: true);
-            AppendOutput(result.output);
+            BeginRepoAction();
+            try {
+                AppendOutput("$ git add -A");
+                var addRes = await RunCommandAsync("git", new[] { "add", "-A" }, RepoPath, timeoutSeconds: 60, nonInteractive: true);
+                AppendOutput(addRes.output);
+                if (addRes.code != 0) return;
+                AppendOutput("$ git commit");
+                var result = await RunCommandAsync("git", new[] { "commit", "-m", msg }, RepoPath, timeoutSeconds: 90, nonInteractive: true);
+                AppendOutput(result.output);
+            } finally {
+                EndRepoAction();
+            }
         }
 
         private async void GitPush_Click(object sender, RoutedEventArgs e) {
             if (!EnsureUnlocked()) return;
-            AppendOutput("$ git push");
-            var result = await RunCommandAsync("git", new[] { "push" }, RepoPath, timeoutSeconds: 90, nonInteractive: true);
-            AppendOutput(result.output);
+            if (IsRepoBusy) return;
+            BeginRepoAction();
+            try {
+                AppendOutput("$ git push");
+                var result = await RunCommandAsync("git", new[] { "push" }, RepoPath, timeoutSeconds: 90, nonInteractive: true);
+                AppendOutput(result.output);
+            } finally {
+                EndRepoAction();
+            }
         }
 
         private async void GitTagPush_Click(object sender, RoutedEventArgs e) {
             if (!EnsureUnlocked()) return;
+            if (IsRepoBusy) return;
             var tag = TagTextBox.Text.Trim();
             if (tag.Length == 0) return;
             var msg = TagMessageTextBox.Text.Trim();
             if (msg.Length == 0) msg = tag;
-            AppendOutput("$ git tag");
-            var tagRes = await RunCommandAsync("git", new[] { "tag", "-a", tag, "-m", msg }, RepoPath, timeoutSeconds: 60, nonInteractive: true);
-            AppendOutput(tagRes.output);
-            if (tagRes.code != 0) return;
-            AppendOutput("$ git push --tags");
-            var pushRes = await RunCommandAsync("git", new[] { "push", "--tags" }, RepoPath, timeoutSeconds: 90, nonInteractive: true);
-            AppendOutput(pushRes.output);
+            BeginRepoAction();
+            try {
+                AppendOutput("$ git tag");
+                var tagRes = await RunCommandAsync("git", new[] { "tag", "-a", tag, "-m", msg }, RepoPath, timeoutSeconds: 60, nonInteractive: true);
+                AppendOutput(tagRes.output);
+                if (tagRes.code != 0) return;
+                AppendOutput("$ git push --tags");
+                var pushRes = await RunCommandAsync("git", new[] { "push", "--tags" }, RepoPath, timeoutSeconds: 90, nonInteractive: true);
+                AppendOutput(pushRes.output);
+            } finally {
+                EndRepoAction();
+            }
         }
 
         private async void GitRelease_Click(object sender, RoutedEventArgs e) {
             if (!EnsureUnlocked()) return;
+            if (IsRepoBusy) return;
             var tag = TagTextBox.Text.Trim();
             if (tag.Length == 0) return;
             var title = ReleaseTitleTextBox.Text.Trim();
             if (title.Length == 0) title = tag;
             var notes = ReleaseNotesTextBox.Text;
-            AppendOutput("$ gh release create");
-            var res = await RunCommandAsync("gh", new[] { "release", "create", tag, "--title", title, "--notes", notes }, RepoPath, timeoutSeconds: 120, nonInteractive: true);
-            AppendOutput(res.output);
+            SetReleaseStatus(null, $"Starting release for tag {tag}...");
+            AppendReleaseLog($"Starting release flow for tag {tag}.");
+
+            BeginRepoAction();
+            try {
+                AppendOutput("$ git push --tags");
+                var pushTags = await RunCommandAsync("git", new[] { "push", "--tags" }, RepoPath, timeoutSeconds: 90, nonInteractive: true);
+                AppendOutput(pushTags.output);
+                if (pushTags.code != 0) {
+                    var fail = "Release failed: unable to push tags to origin.";
+                    AppendOutput(fail);
+                    AppendReleaseLog(fail);
+                    SetReleaseStatus(false, fail);
+                    MessageBox.Show(fail, "Release Failed", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+                AppendReleaseLog("Tags pushed to origin.");
+
+                AppendOutput($"$ gh release view {tag}");
+                var existing = await RunCommandAsync("gh", new[] { "release", "view", tag }, RepoPath, timeoutSeconds: 45, nonInteractive: true);
+                AppendOutput(existing.output);
+
+                if (existing.code == 0) {
+                    AppendReleaseLog("Existing release detected. Editing release.");
+                    AppendOutput("$ gh release edit");
+                    var editRes = await RunCommandAsync("gh", new[] { "release", "edit", tag, "--title", title, "--notes", notes }, RepoPath, timeoutSeconds: 120, nonInteractive: true);
+                    AppendOutput(editRes.output);
+                    if (editRes.code != 0) {
+                        var fail = $"Release failed during gh release edit {tag}.";
+                        AppendReleaseLog(fail);
+                        SetReleaseStatus(false, fail);
+                        MessageBox.Show(fail, "Release Failed", MessageBoxButton.OK, MessageBoxImage.Error);
+                        return;
+                    }
+                } else {
+                    AppendReleaseLog("No release detected. Creating release.");
+                    AppendOutput("$ gh release create");
+                    var createRes = await RunCommandAsync("gh", new[] { "release", "create", tag, "--title", title, "--notes", notes }, RepoPath, timeoutSeconds: 120, nonInteractive: true);
+                    AppendOutput(createRes.output);
+                    if (createRes.code != 0) {
+                        var fail = $"Release failed during gh release create {tag}.";
+                        AppendReleaseLog(fail);
+                        SetReleaseStatus(false, fail);
+                        MessageBox.Show(fail, "Release Failed", MessageBoxButton.OK, MessageBoxImage.Error);
+                        return;
+                    }
+                }
+
+                AppendReleaseLog("Release command completed.");
+                AppendOutput("$ gh release url");
+                var urlRes = await RunCommandAsync("gh", new[] { "release", "view", tag, "--json", "url", "--jq", ".url" }, RepoPath, timeoutSeconds: 30, nonInteractive: true);
+                AppendOutput(urlRes.output);
+
+                var releaseUrl = FirstNonEmptyLine(urlRes.output);
+                var successMsg = !string.IsNullOrWhiteSpace(releaseUrl)
+                    ? $"Release succeeded: {releaseUrl}"
+                    : $"Release succeeded for tag {tag}.";
+                AppendReleaseLog(successMsg);
+                SetReleaseStatus(true, successMsg);
+                MessageBox.Show(successMsg, "Release Succeeded", MessageBoxButton.OK, MessageBoxImage.Information);
+            } finally {
+                EndRepoAction();
+            }
+        }
+
+        private void ClearReleaseLog_Click(object sender, RoutedEventArgs e) {
+            ReleaseLogTextBox.Clear();
         }
 
         private void ReadmeRefresh_Click(object sender, RoutedEventArgs e) {
@@ -279,9 +426,15 @@ namespace Tahera {
         }
 
         private void LoadReadmeLogo() {
+            var fromDesign = System.IO.Path.Combine(RepoPath, "Developer Extras", "Designs", "tahera logo.png");
             var fromRepo = System.IO.Path.Combine(RepoPath, "Mac Aplications", "Tahera", "Sources", "Tahera", "Resources", "tahera_logo.png");
             var fromOutput = System.IO.Path.Combine(AppContext.BaseDirectory, "Resources", "tahera_logo.png");
-            ReadmeLogoImage.Source = LoadBitmap(firstExisting(fromRepo, fromOutput));
+            var logo = LoadBitmap(firstExisting(fromDesign, fromRepo, fromOutput));
+            if (logo != null) {
+                ReadmeLogoImage.Source = logo;
+                SidebarLogoImage.Source = logo;
+                Icon = logo;
+            }
         }
 
         private void LoadFieldImage() {
@@ -291,6 +444,123 @@ namespace Tahera {
             if (bitmap != null) {
                 FieldImage.Source = bitmap;
             }
+        }
+
+        private void LoadPortBrainImage() {
+            var fromRepo = System.IO.Path.Combine(RepoPath, "Mac Aplications", "Tahera", "Sources", "Tahera", "Resources", "v5_brain.png");
+            var fromOutput = System.IO.Path.Combine(AppContext.BaseDirectory, "Resources", "v5_brain.png");
+            var bitmap = LoadBitmap(firstExisting(fromRepo, fromOutput));
+            if (bitmap != null) {
+                PortBrainImage.Source = bitmap;
+            }
+        }
+
+        private void ShowPortNumbers_Changed(object sender, RoutedEventArgs e) {
+            RedrawPortMapOverlay();
+        }
+
+        private void PortMapOverlay_SizeChanged(object sender, SizeChangedEventArgs e) {
+            RedrawPortMapOverlay();
+        }
+
+        private void RedrawPortMapOverlay() {
+            PortMapOverlay.Children.Clear();
+            if (PortMapOverlay.ActualWidth < 2 || PortMapOverlay.ActualHeight < 2) return;
+
+            var width = PortMapOverlay.ActualWidth;
+            var height = PortMapOverlay.ActualHeight;
+
+            if (ShowPortNumbersCheckBox.IsChecked == true) {
+                for (var port = 1; port <= 20; port++) {
+                    DrawPortNumber(port, SocketPoint(port, width, height));
+                }
+            }
+
+            var grouped = _portAssignments
+                .GroupBy(assignment => assignment.Port)
+                .OrderBy(group => group.Key);
+
+            foreach (var group in grouped) {
+                var anchor = SocketPoint(group.Key, width, height);
+                DrawAnchorDot(anchor);
+
+                var list = group.ToList();
+                for (var index = 0; index < list.Count; index++) {
+                    var assignment = list[index];
+                    var offset = MarkerOffset(index, list.Count);
+                    var markerCenter = new Point(anchor.X + offset.X, anchor.Y + offset.Y);
+                    DrawAssignmentMarker(assignment, markerCenter);
+                }
+            }
+        }
+
+        private void DrawPortNumber(int port, Point center) {
+            var label = new Border {
+                Background = new SolidColorBrush(Color.FromArgb(150, 0, 0, 0)),
+                CornerRadius = new CornerRadius(10),
+                Padding = new Thickness(6, 2, 6, 2)
+            };
+            label.Child = new TextBlock {
+                Text = port.ToString(CultureInfo.InvariantCulture),
+                Foreground = new SolidColorBrush(Color.FromRgb(231, 238, 247)),
+                FontWeight = FontWeights.Bold,
+                FontSize = 13
+            };
+
+            label.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            var desired = label.DesiredSize;
+            Canvas.SetLeft(label, center.X - desired.Width / 2.0);
+            Canvas.SetTop(label, center.Y - desired.Height / 2.0);
+            PortMapOverlay.Children.Add(label);
+        }
+
+        private void DrawAnchorDot(Point center) {
+            var dot = new System.Windows.Shapes.Ellipse {
+                Width = 8,
+                Height = 8,
+                Fill = new SolidColorBrush(Color.FromRgb(252, 239, 199))
+            };
+            Canvas.SetLeft(dot, center.X - dot.Width / 2.0);
+            Canvas.SetTop(dot, center.Y - dot.Height / 2.0);
+            PortMapOverlay.Children.Add(dot);
+        }
+
+        private void DrawAssignmentMarker(PortAssignment assignment, Point center) {
+            var label = new Border {
+                Background = new SolidColorBrush(assignment.Color),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(220, 255, 255, 255)),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(12),
+                Padding = new Thickness(10, 5, 10, 5)
+            };
+            label.Child = new TextBlock {
+                Text = assignment.Short,
+                Foreground = new SolidColorBrush(Color.FromRgb(18, 28, 40)),
+                FontWeight = FontWeights.Bold,
+                FontSize = 14
+            };
+
+            label.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            var desired = label.DesiredSize;
+            Canvas.SetLeft(label, center.X - desired.Width / 2.0);
+            Canvas.SetTop(label, center.Y - desired.Height / 2.0);
+            PortMapOverlay.Children.Add(label);
+        }
+
+        private static Point SocketPoint(int port, double width, double height) {
+            var clampedPort = Math.Clamp(port, 1, 20);
+            var index = (clampedPort - 1) % 10;
+            var isTop = clampedPort <= 10;
+            var xRatio = isTop ? TopPortX[index] : BottomPortX[index];
+            var yRatio = isTop ? TopPortY : BottomPortY;
+            return new Point(width * xRatio, height * yRatio);
+        }
+
+        private static Vector MarkerOffset(int index, int total) {
+            if (total <= 1) return new Vector(0, 0);
+            var radius = total == 2 ? 22.0 : 30.0;
+            var angle = ((double)index / total) * Math.PI * 2.0 - (Math.PI / 2.0);
+            return new Vector(Math.Cos(angle) * radius, Math.Sin(angle) * radius);
         }
 
         private void OpenReplayFile_Click(object sender, RoutedEventArgs e) {
@@ -427,6 +697,14 @@ namespace Tahera {
                 pose.Axis4,
                 pose.Action
             );
+        }
+
+        private static string FirstNonEmptyLine(string output) {
+            foreach (var line in output.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None)) {
+                var trimmed = line.Trim();
+                if (trimmed.Length > 0) return trimmed;
+            }
+            return string.Empty;
         }
 
         private static string? firstExisting(params string[] candidates) {
@@ -584,6 +862,7 @@ namespace Tahera {
             return 0.0;
         }
 
+        private sealed record PortAssignment(string Short, string Title, int Port, Color Color);
         private sealed record ReplaySample(double Time, double Axis1, double Axis2, double Axis3, double Axis4, string Action);
 
         private sealed record ReplayPose(

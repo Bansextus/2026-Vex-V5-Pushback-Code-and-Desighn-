@@ -16,5 +16,8 @@
     <None Include="..\..\Mac Aplications\Tahera\Sources\Tahera\Resources\tahera_logo.png" Link="Resources\tahera_logo.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="..\..\Mac Aplications\Tahera\Sources\Tahera\Resources\v5_brain.png" Link="Resources\v5_brain.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 </Project>

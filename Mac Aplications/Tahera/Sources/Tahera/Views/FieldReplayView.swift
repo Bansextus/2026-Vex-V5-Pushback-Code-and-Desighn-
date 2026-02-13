@@ -28,7 +28,7 @@ struct FieldReplayView: View {
                     }
 
                     Text(selectedFileName)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.system(size: 17, weight: .semibold))
                         .foregroundColor(Theme.subtext)
                         .lineLimit(1)
 
@@ -36,7 +36,7 @@ struct FieldReplayView: View {
 
                     if !poses.isEmpty {
                         Text("Samples: \(poses.count)")
-                            .font(.system(size: 13, weight: .semibold))
+                            .font(.system(size: 17, weight: .semibold))
                             .foregroundColor(Theme.subtext)
                     }
                 }
@@ -44,7 +44,7 @@ struct FieldReplayView: View {
 
             Card {
                 Text("Replay Overlay")
-                    .font(.system(size: 22, weight: .semibold, design: .rounded))
+                    .font(.system(size: 26, weight: .semibold, design: .rounded))
                     .foregroundColor(Theme.text)
 
                 if let image = loadFieldImage() {
@@ -52,7 +52,7 @@ struct FieldReplayView: View {
                 } else {
                     Text("Field image not found")
                         .foregroundColor(Theme.subtext)
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.system(size: 19, weight: .medium))
                 }
 
                 if !poses.isEmpty {
@@ -62,10 +62,10 @@ struct FieldReplayView: View {
 
             Card {
                 Text("Readout")
-                    .font(.system(size: 22, weight: .semibold, design: .rounded))
+                    .font(.system(size: 26, weight: .semibold, design: .rounded))
                     .foregroundColor(Theme.text)
                 Text(statusText)
-                    .font(.system(size: 14, weight: .regular, design: .monospaced))
+                    .font(.system(size: 16, weight: .regular, design: .monospaced))
                     .foregroundColor(Theme.subtext)
                     .textSelection(.enabled)
             }
@@ -89,7 +89,7 @@ struct FieldReplayView: View {
     private var sliderRow: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Frame \(currentIndex + 1) / \(poses.count)")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: 17, weight: .semibold))
                 .foregroundColor(Theme.subtext)
             Slider(
                 value: Binding(

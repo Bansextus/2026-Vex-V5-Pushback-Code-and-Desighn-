@@ -13,11 +13,11 @@ struct BuildUploadView: View {
                         HStack {
                             Text(model.projects[idx].name)
                                 .foregroundColor(Theme.text)
-                                .font(.system(size: 21, weight: .semibold, design: .rounded))
+                                .font(.system(size: 25, weight: .semibold, design: .rounded))
                             Spacer()
                             Stepper("Slot \(model.projects[idx].slot)", value: $model.projects[idx].slot, in: 1...8)
                                 .foregroundColor(Theme.subtext)
-                                .font(.system(size: 15, weight: .semibold))
+                                .font(.system(size: 18, weight: .semibold))
                         }
 
                         HStack {

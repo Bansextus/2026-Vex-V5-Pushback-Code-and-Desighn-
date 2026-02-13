@@ -20,13 +20,14 @@ struct GitHubView: View {
     private var lockedView: some View {
         Card {
             Text("Locked")
-                .font(.system(size: 22, weight: .semibold, design: .rounded))
+                .font(.system(size: 26, weight: .semibold, design: .rounded))
                 .foregroundColor(Theme.text)
             Text("Enter the password to access repository settings.")
                 .foregroundColor(Theme.subtext)
-                .font(.system(size: 16, weight: .medium))
+                .font(.system(size: 19, weight: .medium))
             SecureField("Password", text: $model.repoSettingsPasswordInput)
                 .textFieldStyle(.roundedBorder)
+                .font(.system(size: 18, weight: .medium, design: .rounded))
                 .frame(maxWidth: 320)
             HStack {
                 Button("Unlock") { model.unlockRepositorySettings() }
@@ -42,10 +43,11 @@ struct GitHubView: View {
         VStack(alignment: .leading, spacing: 14) {
             Card {
                 Text("Git Commit & Push")
-                    .font(.system(size: 22, weight: .semibold, design: .rounded))
+                    .font(.system(size: 26, weight: .semibold, design: .rounded))
                     .foregroundColor(Theme.text)
                 TextField("Commit message", text: $model.gitCommitMessage)
                     .textFieldStyle(.roundedBorder)
+                    .font(.system(size: 18, weight: .medium, design: .rounded))
                 HStack {
                     Button("Commit") { model.gitCommit() }
                     Button("Push") { model.gitPush() }
@@ -55,16 +57,20 @@ struct GitHubView: View {
 
             Card {
                 Text("Tag + Release")
-                    .font(.system(size: 22, weight: .semibold, design: .rounded))
+                    .font(.system(size: 26, weight: .semibold, design: .rounded))
                     .foregroundColor(Theme.text)
                 TextField("Tag", text: $model.gitTag)
                     .textFieldStyle(.roundedBorder)
+                    .font(.system(size: 18, weight: .medium, design: .rounded))
                 TextField("Tag message", text: $model.gitTagMessage)
                     .textFieldStyle(.roundedBorder)
+                    .font(.system(size: 18, weight: .medium, design: .rounded))
                 TextField("Release title", text: $model.gitReleaseTitle)
                     .textFieldStyle(.roundedBorder)
+                    .font(.system(size: 18, weight: .medium, design: .rounded))
                 TextEditor(text: $model.gitReleaseNotes)
                     .frame(height: 120)
+                    .font(.system(size: 17, weight: .regular, design: .monospaced))
                     .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.15), lineWidth: 1))
                 HStack {
                     Button("Tag + Push") { model.gitTagAndPush() }
@@ -76,8 +82,34 @@ struct GitHubView: View {
                 if model.isBusy {
                     Text("Running repository command...")
                         .foregroundColor(Theme.subtext)
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.system(size: 16, weight: .medium))
                 }
+
+                if !model.releaseStatusMessage.isEmpty {
+                    Text(model.releaseStatusMessage)
+                        .foregroundColor(model.releaseStatusIsSuccess ? Theme.accent : .red)
+                        .font(.system(size: 17, weight: .semibold))
+                }
+            }
+
+            Card {
+                HStack {
+                    Text("Release Log")
+                        .font(.system(size: 26, weight: .semibold, design: .rounded))
+                        .foregroundColor(Theme.text)
+                    Spacer()
+                    Button("Clear Log") { model.clearReleaseLog() }
+                        .disabled(model.isBusy)
+                }
+
+                ScrollView {
+                    Text(model.releaseLog.isEmpty ? "No release events yet." : model.releaseLog)
+                        .foregroundColor(Theme.subtext)
+                        .font(.system(size: 15, weight: .regular, design: .monospaced))
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .frame(minHeight: 150)
             }
         }
     }

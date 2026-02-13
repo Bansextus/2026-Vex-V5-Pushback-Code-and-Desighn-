@@ -18,10 +18,10 @@ struct RootView: View {
                     .overlay(Color.white.opacity(0.12))
 
                 detailPane
-                    .padding(20)
+                    .padding(24)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
-            .frame(minWidth: 960, minHeight: 640)
+            .frame(minWidth: 1120, minHeight: 720)
 
             cornerLogo
         }
@@ -80,7 +80,7 @@ struct RootView: View {
                     .animation(.easeInOut(duration: 2.8).repeatForever(autoreverses: true), value: pulseLogo)
 
                 Text("Tahera")
-                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                    .font(.system(size: 38, weight: .bold, design: .rounded))
                     .foregroundColor(Theme.text)
             }
             .padding(.bottom, 8)
@@ -93,16 +93,16 @@ struct RootView: View {
                 } label: {
                     HStack(spacing: 12) {
                         Image(systemName: section.symbolName)
-                            .font(.system(size: 18, weight: .semibold))
+                            .font(.system(size: 22, weight: .semibold))
                             .foregroundStyle(model.currentSection == section ? Theme.accent : Theme.subtext.opacity(0.8))
-                            .frame(width: 24, height: 24)
+                            .frame(width: 30, height: 30)
                         Text(section.rawValue)
                             .foregroundColor(Theme.text)
-                            .font(.system(size: 19, weight: model.currentSection == section ? .bold : .semibold, design: .rounded))
+                            .font(.system(size: 23, weight: model.currentSection == section ? .bold : .semibold, design: .rounded))
                         Spacer()
                     }
                     .padding(.horizontal, 14)
-                    .padding(.vertical, 12)
+                    .padding(.vertical, 14)
                     .background(
                         RoundedRectangle(cornerRadius: 8)
                             .fill(model.currentSection == section ? Color.black.opacity(0.25) : (hoveredSection == section ? Color.white.opacity(0.08) : Color.clear))
@@ -126,15 +126,15 @@ struct RootView: View {
             if model.isBusy {
                 HStack(spacing: 8) {
                     ProgressView()
-                        .controlSize(.small)
+                        .controlSize(.regular)
                     Text("Running command...")
                         .foregroundColor(Theme.subtext)
-                        .font(.system(size: 12))
+                        .font(.system(size: 15, weight: .medium))
                 }
             }
         }
-        .padding(16)
-        .frame(width: 320)
+        .padding(18)
+        .frame(width: 344)
         .frame(maxHeight: .infinity, alignment: .topLeading)
         .background(
             LinearGradient(
@@ -154,7 +154,7 @@ struct RootView: View {
                     removal: .opacity
                 )
             )
-            .padding(28)
+            .padding(32)
             .background(
                 RoundedRectangle(cornerRadius: 26, style: .continuous)
                     .fill(Color.black.opacity(0.24))

@@ -4,6 +4,12 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$ROOT_DIR"
 
+DESIGN_LOGO_SRC="$ROOT_DIR/../../Developer Extras/Designs/tahera logo.png"
+MODULE_LOGO_DEST="$ROOT_DIR/Sources/Tahera/Resources/tahera_logo.png"
+if [ -f "$DESIGN_LOGO_SRC" ]; then
+  cp "$DESIGN_LOGO_SRC" "$MODULE_LOGO_DEST"
+fi
+
 swift build -c release
 
 APP_DIR="$ROOT_DIR/build/Tahera.app/Contents"
@@ -19,7 +25,7 @@ for bundle in "$ROOT_DIR/.build/release"/*.bundle "$ROOT_DIR/.build/arm64-apple-
   fi
 done
 
-ICON_SRC="$ROOT_DIR/Sources/Tahera/Resources/tahera_logo.png"
+ICON_SRC="$MODULE_LOGO_DEST"
 ICONSET_DIR="$ROOT_DIR/build/AppIcon.iconset"
 ICNS_OUT="$ROOT_DIR/build/AppIcon.icns"
 

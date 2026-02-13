@@ -1,56 +1,73 @@
 <Window x:Class="Tahera.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Tahera" Height="760" Width="1180" WindowStartupLocation="CenterScreen" Background="{StaticResource BgBrush}">
+        Title="Tahera"
+        Height="860"
+        Width="1380"
+        MinHeight="760"
+        MinWidth="1220"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource BgBrush}">
   <Grid>
     <Grid.ColumnDefinitions>
-      <ColumnDefinition Width="250"/>
+      <ColumnDefinition Width="300"/>
       <ColumnDefinition Width="*"/>
     </Grid.ColumnDefinitions>
 
-    <Border Grid.Column="0" Background="#14263A" Padding="12">
-      <StackPanel>
-        <TextBlock Text="Tahera" Foreground="{StaticResource TextBrush}" FontSize="24" FontWeight="Bold" Margin="8,8,8,18"/>
+    <Border Grid.Column="0" Background="#14263A" Padding="18">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Top">
+          <StackPanel Orientation="Horizontal" Margin="8,6,8,22">
+            <Border Width="70" Height="70" CornerRadius="12" BorderBrush="#2DFFFFFF" BorderThickness="1" Background="#18000000">
+              <Image x:Name="SidebarLogoImage" Stretch="UniformToFill"/>
+            </Border>
+            <TextBlock Text="Tahera" Foreground="{StaticResource TextBrush}" FontSize="38" FontWeight="Bold" Margin="14,12,0,0"/>
+          </StackPanel>
 
-        <Button Content="Home" Tag="Home" Click="SectionButton_Click" Margin="0,0,0,8"/>
-        <Button Content="Build & Upload" Tag="Build" Click="SectionButton_Click" Margin="0,0,0,8"/>
-        <Button Content="Port Map" Tag="Port" Click="SectionButton_Click" Margin="0,0,0,8"/>
-        <Button Content="SD Card" Tag="Sd" Click="SectionButton_Click" Margin="0,0,0,8"/>
-        <Button Content="Field Replay" Tag="Field" Click="SectionButton_Click" Margin="0,0,0,8"/>
-        <Button Content="README" Tag="Readme" Click="SectionButton_Click" Margin="0,0,0,8"/>
-        <Button Content="Repository Settings" Tag="Git" Click="SectionButton_Click" Margin="0,0,0,8"/>
-      </StackPanel>
+          <Button Content="Home" Tag="Home" Click="SectionButton_Click" Margin="0,0,0,10"/>
+          <Button Content="Build &amp; Upload" Tag="Build" Click="SectionButton_Click" Margin="0,0,0,10"/>
+          <Button Content="Port Map" Tag="Port" Click="SectionButton_Click" Margin="0,0,0,10"/>
+          <Button Content="SD Card" Tag="Sd" Click="SectionButton_Click" Margin="0,0,0,10"/>
+          <Button Content="Field Replay" Tag="Field" Click="SectionButton_Click" Margin="0,0,0,10"/>
+          <Button Content="README" Tag="Readme" Click="SectionButton_Click" Margin="0,0,0,10"/>
+          <Button Content="Repository Settings" Tag="Git" Click="SectionButton_Click" Margin="0,0,0,10"/>
+        </StackPanel>
+
+        <TextBlock DockPanel.Dock="Bottom" Text="Unified control for Tahera + Auton Planner" Foreground="{StaticResource SubBrush}" TextWrapping="Wrap" Margin="8,16,8,0"/>
+      </DockPanel>
     </Border>
 
-    <Grid Grid.Column="1" Margin="16">
+    <Grid Grid.Column="1" Margin="20">
       <Grid x:Name="HomePanel">
-        <StackPanel>
-          <TextBlock Text="Tahera Control Center" Foreground="{StaticResource TextBrush}" FontSize="28" FontWeight="Bold"/>
-          <Border Background="{StaticResource CardBrush}" Padding="14" CornerRadius="10" Margin="0,14,0,0">
-            <StackPanel>
-              <TextBlock Text="Repository Path" Foreground="{StaticResource SubBrush}"/>
-              <TextBox x:Name="RepoPathTextBox" Margin="0,8,0,0"/>
-            </StackPanel>
-          </Border>
-          <Border Background="{StaticResource CardBrush}" Padding="14" CornerRadius="10" Margin="0,14,0,0">
-            <StackPanel>
-              <TextBlock Text="Output" Foreground="{StaticResource SubBrush}"/>
-              <TextBox x:Name="OutputTextBox" Margin="0,8,0,0" Height="380" AcceptsReturn="True" IsReadOnly="True" VerticalScrollBarVisibility="Auto" TextWrapping="Wrap"/>
-            </StackPanel>
-          </Border>
-        </StackPanel>
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <StackPanel>
+            <TextBlock Text="Tahera Control Center" Foreground="{StaticResource TextBrush}" FontSize="36" FontWeight="Bold"/>
+            <Border Background="{StaticResource CardBrush}" Padding="18" CornerRadius="12" Margin="0,16,0,0">
+              <StackPanel>
+                <TextBlock Text="Repository Path" Foreground="{StaticResource SubBrush}"/>
+                <TextBox x:Name="RepoPathTextBox" Margin="0,10,0,0"/>
+              </StackPanel>
+            </Border>
+            <Border Background="{StaticResource CardBrush}" Padding="18" CornerRadius="12" Margin="0,16,0,0">
+              <StackPanel>
+                <TextBlock Text="Output" Foreground="{StaticResource SubBrush}"/>
+                <TextBox x:Name="OutputTextBox" Margin="0,10,0,0" Height="430" AcceptsReturn="True" IsReadOnly="True" VerticalScrollBarVisibility="Auto" TextWrapping="Wrap" FontFamily="Consolas"/>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </ScrollViewer>
       </Grid>
 
       <Grid x:Name="BuildPanel" Visibility="Collapsed">
         <StackPanel>
-          <TextBlock Text="Build & Upload" Foreground="{StaticResource TextBrush}" FontSize="28" FontWeight="Bold"/>
-          <Border Background="{StaticResource CardBrush}" Padding="14" CornerRadius="10" Margin="0,14,0,0">
+          <TextBlock Text="Build &amp; Upload" Foreground="{StaticResource TextBrush}" FontSize="36" FontWeight="Bold"/>
+          <Border Background="{StaticResource CardBrush}" Padding="18" CornerRadius="12" Margin="0,16,0,0">
             <StackPanel>
               <TextBlock Text="Project" Foreground="{StaticResource SubBrush}"/>
-              <ComboBox x:Name="ProjectComboBox" Margin="0,8,0,0"/>
-              <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
-                <Button Content="Build" Click="Build_Click" Margin="0,0,8,0"/>
-                <Button Content="Upload" Click="Upload_Click" Margin="0,0,8,0"/>
+              <ComboBox x:Name="ProjectComboBox" Margin="0,10,0,0"/>
+              <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                <Button Content="Build" Click="Build_Click" Margin="0,0,10,0"/>
+                <Button Content="Upload" Click="Upload_Click" Margin="0,0,10,0"/>
                 <Button Content="Build + Upload" Click="BuildUpload_Click"/>
               </StackPanel>
             </StackPanel>
@@ -59,18 +76,75 @@
       </Grid>
 
       <Grid x:Name="PortPanel" Visibility="Collapsed">
-        <StackPanel>
-          <TextBlock Text="Port Map" Foreground="{StaticResource TextBrush}" FontSize="28" FontWeight="Bold"/>
-          <Border Background="{StaticResource CardBrush}" Padding="14" CornerRadius="10" Margin="0,14,0,0">
-            <TextBlock Text="Port map editor is available in this rebuild. Existing values are preserved in source files and can be edited in-app next iteration." Foreground="{StaticResource SubBrush}" TextWrapping="Wrap"/>
-          </Border>
-        </StackPanel>
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <StackPanel>
+            <TextBlock Text="Port Map" Foreground="{StaticResource TextBrush}" FontSize="36" FontWeight="Bold"/>
+
+            <Border Background="{StaticResource CardBrush}" Padding="18" CornerRadius="12" Margin="0,16,0,0">
+              <StackPanel>
+                <DockPanel>
+                  <TextBlock Text="V5 Brain Overlay" Foreground="{StaticResource TextBrush}" FontSize="28" FontWeight="Bold" DockPanel.Dock="Left"/>
+                  <CheckBox x:Name="ShowPortNumbersCheckBox" Content="Show socket numbers" Margin="14,4,0,0" Checked="ShowPortNumbers_Changed" Unchecked="ShowPortNumbers_Changed" DockPanel.Dock="Right"/>
+                </DockPanel>
+
+                <Border BorderBrush="#2DFFFFFF" BorderThickness="1" CornerRadius="10" Background="#12000000" Margin="0,14,0,0">
+                  <Viewbox Stretch="Uniform">
+                    <Grid Width="980" Height="560">
+                      <Image x:Name="PortBrainImage" Stretch="Fill"/>
+                      <Canvas x:Name="PortMapOverlay" IsHitTestVisible="False" SizeChanged="PortMapOverlay_SizeChanged"/>
+                    </Grid>
+                  </Viewbox>
+                </Border>
+
+                <TextBlock Text="Clean view: one marker per mapped device, directly on the matching brain port." Foreground="{StaticResource SubBrush}" Margin="0,12,0,0" TextWrapping="Wrap"/>
+              </StackPanel>
+            </Border>
+
+            <Border Background="{StaticResource CardBrush}" Padding="18" CornerRadius="12" Margin="0,16,0,0">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <Border Grid.Column="0" Background="#15000000" CornerRadius="10" Padding="14" Margin="0,0,10,0">
+                  <StackPanel>
+                    <TextBlock Text="Drive" Foreground="{StaticResource TextBrush}" FontSize="24" FontWeight="Bold"/>
+                    <TextBlock Text="L1: Left Outer 1" Foreground="{StaticResource SubBrush}" Margin="0,8,0,0"/>
+                    <TextBlock Text="L2: Left Outer 2" Foreground="{StaticResource SubBrush}" Margin="0,6,0,0"/>
+                    <TextBlock Text="LM: Left Middle" Foreground="{StaticResource SubBrush}" Margin="0,6,0,0"/>
+                    <TextBlock Text="R1: Right Outer 1" Foreground="{StaticResource SubBrush}" Margin="0,6,0,0"/>
+                    <TextBlock Text="R2: Right Outer 2" Foreground="{StaticResource SubBrush}" Margin="0,6,0,0"/>
+                    <TextBlock Text="RM: Right Middle" Foreground="{StaticResource SubBrush}" Margin="0,6,0,0"/>
+                  </StackPanel>
+                </Border>
+
+                <Border Grid.Column="1" Background="#15000000" CornerRadius="10" Padding="14" Margin="5,0,5,0">
+                  <StackPanel>
+                    <TextBlock Text="Mechanisms" Foreground="{StaticResource TextBrush}" FontSize="24" FontWeight="Bold"/>
+                    <TextBlock Text="IN: Intake" Foreground="{StaticResource SubBrush}" Margin="0,8,0,0"/>
+                    <TextBlock Text="OUT: Outake" Foreground="{StaticResource SubBrush}" Margin="0,6,0,0"/>
+                  </StackPanel>
+                </Border>
+
+                <Border Grid.Column="2" Background="#15000000" CornerRadius="10" Padding="14" Margin="10,0,0,0">
+                  <StackPanel>
+                    <TextBlock Text="Sensors" Foreground="{StaticResource TextBrush}" FontSize="24" FontWeight="Bold"/>
+                    <TextBlock Text="IMU: Inertial" Foreground="{StaticResource SubBrush}" Margin="0,8,0,0"/>
+                    <TextBlock Text="GPS: Position" Foreground="{StaticResource SubBrush}" Margin="0,6,0,0"/>
+                  </StackPanel>
+                </Border>
+              </Grid>
+            </Border>
+          </StackPanel>
+        </ScrollViewer>
       </Grid>
 
       <Grid x:Name="SdPanel" Visibility="Collapsed">
         <StackPanel>
-          <TextBlock Text="SD Card" Foreground="{StaticResource TextBrush}" FontSize="28" FontWeight="Bold"/>
-          <Border Background="{StaticResource CardBrush}" Padding="14" CornerRadius="10" Margin="0,14,0,0">
+          <TextBlock Text="SD Card" Foreground="{StaticResource TextBrush}" FontSize="36" FontWeight="Bold"/>
+          <Border Background="{StaticResource CardBrush}" Padding="18" CornerRadius="12" Margin="0,16,0,0">
             <TextBlock Text="SD tools can be extended here. Current rebuild focuses on repository security gate and workflow continuity." Foreground="{StaticResource SubBrush}" TextWrapping="Wrap"/>
           </Border>
         </StackPanel>
@@ -79,25 +153,25 @@
       <Grid x:Name="FieldPanel" Visibility="Collapsed">
         <ScrollViewer VerticalScrollBarVisibility="Auto">
           <StackPanel>
-            <TextBlock Text="Field Replay" Foreground="{StaticResource TextBrush}" FontSize="28" FontWeight="Bold"/>
-            <Border Background="{StaticResource CardBrush}" Padding="14" CornerRadius="10" Margin="0,14,0,0">
+            <TextBlock Text="Field Replay" Foreground="{StaticResource TextBrush}" FontSize="36" FontWeight="Bold"/>
+            <Border Background="{StaticResource CardBrush}" Padding="18" CornerRadius="12" Margin="0,16,0,0">
               <StackPanel>
-                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                  <Button Content="Open Replay File" Click="OpenReplayFile_Click" Margin="0,0,8,0"/>
-                  <Button Content="Clear" Click="ClearReplay_Click" Margin="0,0,10,0"/>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                  <Button Content="Open Replay File" Click="OpenReplayFile_Click" Margin="0,0,10,0"/>
+                  <Button Content="Clear" Click="ClearReplay_Click" Margin="0,0,12,0"/>
                   <TextBlock x:Name="ReplayFileText" Foreground="{StaticResource SubBrush}" VerticalAlignment="Center" Text="No replay file loaded"/>
                 </StackPanel>
 
-                <Border BorderBrush="#22FFFFFF" BorderThickness="1" CornerRadius="8" Background="#14000000">
-                  <Grid Height="420">
+                <Border BorderBrush="#22FFFFFF" BorderThickness="1" CornerRadius="10" Background="#14000000">
+                  <Grid Height="470">
                     <Image x:Name="FieldImage" Stretch="Fill"/>
                     <Canvas x:Name="FieldOverlay" IsHitTestVisible="False" SizeChanged="FieldOverlay_SizeChanged"/>
                   </Grid>
                 </Border>
 
-                <TextBlock Text="Frame" Foreground="{StaticResource SubBrush}" Margin="0,12,0,4"/>
+                <TextBlock Text="Frame" Foreground="{StaticResource SubBrush}" Margin="0,14,0,6"/>
                 <Slider x:Name="ReplaySlider" Minimum="0" Maximum="0" Value="0" ValueChanged="ReplaySlider_ValueChanged"/>
-                <TextBlock x:Name="ReplayReadoutText" Foreground="{StaticResource SubBrush}" FontFamily="Consolas" Margin="0,12,0,0" TextWrapping="Wrap"/>
+                <TextBlock x:Name="ReplayReadoutText" Foreground="{StaticResource SubBrush}" FontFamily="Consolas" Margin="0,14,0,0" TextWrapping="Wrap"/>
               </StackPanel>
             </Border>
           </StackPanel>
@@ -106,23 +180,23 @@
 
       <Grid x:Name="ReadmePanel" Visibility="Collapsed">
         <StackPanel>
-          <TextBlock Text="README" Foreground="{StaticResource TextBrush}" FontSize="28" FontWeight="Bold"/>
-          <Border Background="{StaticResource CardBrush}" Padding="14" CornerRadius="10" Margin="0,14,0,0">
+          <TextBlock Text="README" Foreground="{StaticResource TextBrush}" FontSize="36" FontWeight="Bold"/>
+          <Border Background="{StaticResource CardBrush}" Padding="18" CornerRadius="12" Margin="0,16,0,0">
             <StackPanel>
               <StackPanel Orientation="Horizontal">
-                <Image x:Name="ReadmeLogoImage" Width="64" Height="64" Stretch="Uniform" Margin="0,0,14,0"/>
+                <Image x:Name="ReadmeLogoImage" Width="80" Height="80" Stretch="Uniform" Margin="0,0,14,0"/>
                 <StackPanel>
-                  <TextBlock Text="Tahera Project Readme" Foreground="{StaticResource TextBrush}" FontSize="20" FontWeight="Bold"/>
+                  <TextBlock Text="Tahera Project Readme" Foreground="{StaticResource TextBrush}" FontSize="28" FontWeight="Bold"/>
                   <TextBlock Text="Loaded from README.md in your repository." Foreground="{StaticResource SubBrush}" Margin="0,4,0,0"/>
                 </StackPanel>
               </StackPanel>
 
-              <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
-                <Button Content="Refresh README" Click="ReadmeRefresh_Click" Margin="0,0,8,0"/>
+              <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                <Button Content="Refresh README" Click="ReadmeRefresh_Click" Margin="0,0,10,0"/>
                 <Button Content="Open README File" Click="OpenReadmeFile_Click"/>
               </StackPanel>
 
-              <TextBox x:Name="ReadmeTextBox" Margin="0,12,0,0" Height="460" AcceptsReturn="True" IsReadOnly="True" VerticalScrollBarVisibility="Auto" TextWrapping="Wrap"/>
+              <TextBox x:Name="ReadmeTextBox" Margin="0,14,0,0" Height="470" AcceptsReturn="True" IsReadOnly="True" VerticalScrollBarVisibility="Auto" TextWrapping="Wrap" FontFamily="Consolas"/>
             </StackPanel>
           </Border>
         </StackPanel>
@@ -131,44 +205,56 @@
       <Grid x:Name="GitPanel" Visibility="Collapsed">
         <Grid>
           <StackPanel x:Name="GitLockedPanel">
-            <TextBlock Text="Repository Settings" Foreground="{StaticResource TextBrush}" FontSize="28" FontWeight="Bold"/>
-            <Border Background="{StaticResource CardBrush}" Padding="14" CornerRadius="10" Margin="0,14,0,0">
+            <TextBlock Text="Repository Settings" Foreground="{StaticResource TextBrush}" FontSize="36" FontWeight="Bold"/>
+            <Border Background="{StaticResource CardBrush}" Padding="18" CornerRadius="12" Margin="0,16,0,0">
               <StackPanel>
                 <TextBlock Text="Locked. Enter password to continue." Foreground="{StaticResource SubBrush}"/>
                 <PasswordBox x:Name="RepoSettingsPasswordBox" Margin="0,10,0,0"/>
-                <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
                   <Button Content="Unlock" Click="UnlockRepoSettings_Click"/>
-                  <TextBlock x:Name="AuthErrorText" Foreground="#FF6E6E" Margin="12,4,0,0"/>
+                  <TextBlock x:Name="AuthErrorText" Foreground="#FF6E6E" Margin="12,8,0,0"/>
                 </StackPanel>
               </StackPanel>
             </Border>
           </StackPanel>
 
           <StackPanel x:Name="GitUnlockedPanel" Visibility="Collapsed">
-            <TextBlock Text="Repository Settings" Foreground="{StaticResource TextBrush}" FontSize="28" FontWeight="Bold"/>
-            <Border Background="{StaticResource CardBrush}" Padding="14" CornerRadius="10" Margin="0,14,0,0">
+            <TextBlock Text="Repository Settings" Foreground="{StaticResource TextBrush}" FontSize="36" FontWeight="Bold"/>
+            <Border Background="{StaticResource CardBrush}" Padding="18" CornerRadius="12" Margin="0,16,0,0">
               <StackPanel>
-                <TextBlock Text="Commit & Push" Foreground="{StaticResource SubBrush}"/>
-                <TextBox x:Name="CommitMessageTextBox" Margin="0,8,0,0"/>
-                <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
-                  <Button Content="Commit" Click="GitCommit_Click" Margin="0,0,8,0"/>
-                  <Button Content="Push" Click="GitPush_Click"/>
+                <TextBlock Text="Commit &amp; Push" Foreground="{StaticResource SubBrush}"/>
+                <TextBox x:Name="CommitMessageTextBox" Margin="0,10,0,0"/>
+                <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                  <Button x:Name="GitCommitButton" Content="Commit" Click="GitCommit_Click" Margin="0,0,10,0"/>
+                  <Button x:Name="GitPushButton" Content="Push" Click="GitPush_Click"/>
                 </StackPanel>
               </StackPanel>
             </Border>
 
-            <Border Background="{StaticResource CardBrush}" Padding="14" CornerRadius="10" Margin="0,14,0,0">
+            <Border Background="{StaticResource CardBrush}" Padding="18" CornerRadius="12" Margin="0,16,0,0">
               <StackPanel>
                 <TextBlock Text="Tag / Release" Foreground="{StaticResource SubBrush}"/>
-                <TextBox x:Name="TagTextBox" Margin="0,8,0,0"/>
-                <TextBox x:Name="TagMessageTextBox" Margin="0,8,0,0"/>
-                <TextBox x:Name="ReleaseTitleTextBox" Margin="0,8,0,0"/>
-                <TextBox x:Name="ReleaseNotesTextBox" Margin="0,8,0,0" Height="120" AcceptsReturn="True" TextWrapping="Wrap"/>
-                <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
-                  <Button Content="Tag + Push" Click="GitTagPush_Click" Margin="0,0,8,0"/>
-                  <Button Content="Create Release" Click="GitRelease_Click" Margin="0,0,8,0"/>
-                  <Button Content="Lock" Click="LockRepoSettings_Click"/>
+                <TextBox x:Name="TagTextBox" Margin="0,10,0,0"/>
+                <TextBox x:Name="TagMessageTextBox" Margin="0,10,0,0"/>
+                <TextBox x:Name="ReleaseTitleTextBox" Margin="0,10,0,0"/>
+                <TextBox x:Name="ReleaseNotesTextBox" Margin="0,10,0,0" Height="140" AcceptsReturn="True" TextWrapping="Wrap" FontFamily="Consolas"/>
+                <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                  <Button x:Name="GitTagPushButton" Content="Tag + Push" Click="GitTagPush_Click" Margin="0,0,10,0"/>
+                  <Button x:Name="GitCreateReleaseButton" Content="Create Release" Click="GitRelease_Click" Margin="0,0,10,0"/>
+                  <Button x:Name="GitLockButton" Content="Lock" Click="LockRepoSettings_Click"/>
                 </StackPanel>
+                <TextBlock x:Name="RepoBusyText" Foreground="{StaticResource SubBrush}" Margin="0,12,0,0" Visibility="Collapsed" Text="Running repository command..."/>
+                <TextBlock x:Name="ReleaseStatusText" Foreground="{StaticResource SubBrush}" Margin="0,8,0,0" TextWrapping="Wrap"/>
+              </StackPanel>
+            </Border>
+
+            <Border Background="{StaticResource CardBrush}" Padding="18" CornerRadius="12" Margin="0,16,0,0">
+              <StackPanel>
+                <StackPanel Orientation="Horizontal">
+                  <TextBlock Text="Release Log" Foreground="{StaticResource SubBrush}" VerticalAlignment="Center"/>
+                  <Button x:Name="ClearReleaseLogButton" Content="Clear Log" Click="ClearReleaseLog_Click" Margin="10,0,0,0"/>
+                </StackPanel>
+                <TextBox x:Name="ReleaseLogTextBox" Margin="0,10,0,0" Height="220" AcceptsReturn="True" IsReadOnly="True" VerticalScrollBarVisibility="Auto" TextWrapping="Wrap" FontFamily="Consolas"/>
               </StackPanel>
             </Border>
           </StackPanel>

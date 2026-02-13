@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import Darwin
 
 final class TaheraModel: ObservableObject {
     @Published var currentSection: AppSection = .home
@@ -33,8 +34,13 @@ final class TaheraModel: ObservableObject {
     @Published var gitTagMessage: String = ""
     @Published var gitReleaseTitle: String = ""
     @Published var gitReleaseNotes: String = ""
+    @Published var releaseLog: String = ""
+    @Published var releaseStatusMessage: String = ""
+    @Published var releaseStatusIsSuccess: Bool = false
 
     private let repoSettingsPassword = "56Wrenches.782"
+    private let busyQueue = DispatchQueue(label: "TaheraModel.BusyQueue")
+    private var busyCount = 0
 
     init() {
         refreshSDStatus()
@@ -67,6 +73,47 @@ final class TaheraModel: ObservableObject {
         }
     }
 
+    func clearReleaseLog() {
+        DispatchQueue.main.async {
+            self.releaseLog = ""
+        }
+    }
+
+    private func appendReleaseLog(_ text: String) {
+        let timestamp = ISO8601DateFormatter().string(from: Date())
+        DispatchQueue.main.async {
+            self.releaseLog.append("[\(timestamp)] \(text)\n")
+        }
+    }
+
+    private func updateReleaseStatus(success: Bool, message: String) {
+        DispatchQueue.main.async {
+            self.releaseStatusIsSuccess = success
+            self.releaseStatusMessage = message
+        }
+        appendReleaseLog(message)
+    }
+
+    private func beginBusy() {
+        busyQueue.async {
+            self.busyCount += 1
+            let busy = self.busyCount > 0
+            DispatchQueue.main.async {
+                self.isBusy = busy
+            }
+        }
+    }
+
+    private func endBusy() {
+        busyQueue.async {
+            self.busyCount = max(0, self.busyCount - 1)
+            let busy = self.busyCount > 0
+            DispatchQueue.main.async {
+                self.isBusy = busy
+            }
+        }
+    }
+
     private func runCommand(
         _ cmd: [String],
         cwd: String? = nil,
@@ -75,10 +122,14 @@ final class TaheraModel: ObservableObject {
         nonInteractive: Bool = false,
         completion: ((Int32) -> Void)? = nil
     ) {
-        isBusy = true
+        beginBusy()
         appendLog("$ \(label)")
 
         DispatchQueue.global(qos: .userInitiated).async {
+            defer {
+                self.endBusy()
+            }
+
             let process = Process()
             process.executableURL = URL(fileURLWithPath: cmd.first ?? "")
             process.arguments = Array(cmd.dropFirst())
@@ -106,7 +157,6 @@ final class TaheraModel: ObservableObject {
                 try process.run()
             } catch {
                 self.appendLog("Failed: \(error.localizedDescription)")
-                DispatchQueue.main.async { self.isBusy = false }
                 completion?(-1)
                 return
             }
@@ -126,6 +176,13 @@ final class TaheraModel: ObservableObject {
                 if Date().timeIntervalSince(started) > timeoutSeconds {
                     didTimeout = true
                     process.terminate()
+                    let killDeadline = Date().addingTimeInterval(2.0)
+                    while process.isRunning && Date() < killDeadline {
+                        Thread.sleep(forTimeInterval: 0.05)
+                    }
+                    if process.isRunning {
+                        _ = Darwin.kill(process.processIdentifier, SIGKILL)
+                    }
                     break
                 }
                 Thread.sleep(forTimeInterval: 0.15)
@@ -135,7 +192,6 @@ final class TaheraModel: ObservableObject {
             if didTimeout {
                 self.appendLog("Failed: command timed out after \(Int(timeoutSeconds))s")
             }
-            DispatchQueue.main.async { self.isBusy = false }
             completion?(didTimeout ? -2 : process.terminationStatus)
         }
     }
@@ -211,7 +267,57 @@ final class TaheraModel: ObservableObject {
         let t = gitTag.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !t.isEmpty else { return }
         let title = gitReleaseTitle.isEmpty ? t : gitReleaseTitle
-        runCommand(["/usr/bin/env", "gh", "release", "create", t, "--title", title, "--notes", gitReleaseNotes], cwd: repoPath, label: "gh release create", timeoutSeconds: 120, nonInteractive: true)
+        let notes = gitReleaseNotes
+        DispatchQueue.main.async {
+            self.releaseStatusMessage = ""
+        }
+        appendReleaseLog("Starting release flow for tag \(t).")
+
+        // Keep tags in sync on origin so GitHub.com reflects the release state.
+        runCommand(["/usr/bin/git", "push", "--tags"], cwd: repoPath, label: "git push --tags", timeoutSeconds: 90, nonInteractive: true) { pushStatus in
+            guard pushStatus == 0 else {
+                self.appendLog("Release aborted: unable to push tags to origin.")
+                self.updateReleaseStatus(success: false, message: "Release failed: unable to push tags to origin.")
+                return
+            }
+            self.appendReleaseLog("Tags pushed to origin.")
+
+            self.runCommand(["/usr/bin/env", "gh", "release", "view", t], cwd: self.repoPath, label: "gh release view \(t)", timeoutSeconds: 45, nonInteractive: true) { viewStatus in
+                let releaseCmd: [String]
+                let releaseLabel: String
+
+                if viewStatus == 0 {
+                    releaseCmd = ["/usr/bin/env", "gh", "release", "edit", t, "--title", title, "--notes", notes]
+                    releaseLabel = "gh release edit \(t)"
+                    self.appendReleaseLog("Existing release detected. Editing release.")
+                } else {
+                    releaseCmd = ["/usr/bin/env", "gh", "release", "create", t, "--title", title, "--notes", notes]
+                    releaseLabel = "gh release create \(t)"
+                    self.appendReleaseLog("No release detected. Creating release.")
+                }
+
+                self.runCommand(releaseCmd, cwd: self.repoPath, label: releaseLabel, timeoutSeconds: 120, nonInteractive: true) { releaseStatus in
+                    guard releaseStatus == 0 else {
+                        self.updateReleaseStatus(success: false, message: "Release failed during \(releaseLabel).")
+                        return
+                    }
+                    self.appendReleaseLog("Release command completed.")
+                    self.runCommand(
+                        ["/usr/bin/env", "gh", "release", "view", t, "--json", "url", "--jq", ".url"],
+                        cwd: self.repoPath,
+                        label: "gh release url \(t)",
+                        timeoutSeconds: 30,
+                        nonInteractive: true
+                    ) { urlStatus in
+                        if urlStatus == 0 {
+                            self.updateReleaseStatus(success: true, message: "Release succeeded for tag \(t).")
+                        } else {
+                            self.updateReleaseStatus(success: true, message: "Release succeeded for tag \(t), but URL lookup failed.")
+                        }
+                    }
+                }
+            }
+        }
     }
 
     func loadReadme() {

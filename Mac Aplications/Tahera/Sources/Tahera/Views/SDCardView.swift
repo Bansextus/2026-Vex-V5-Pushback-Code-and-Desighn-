@@ -11,7 +11,7 @@ struct SDCardView: View {
             Card {
                 Text(model.sdMounted ? "Mounted: \(model.sdPath)" : "Not mounted")
                     .foregroundColor(Theme.subtext)
-                    .font(.system(size: 17, weight: .medium))
+                    .font(.system(size: 20, weight: .medium))
                 HStack {
                     Button("Refresh") { model.refreshSDStatus() }
                     Button("Open SD") {

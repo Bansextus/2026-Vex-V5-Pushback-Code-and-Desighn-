@@ -3,7 +3,10 @@ import AppKit
 
 struct PortMapView: View {
     @EnvironmentObject var model: TaheraModel
-    private let legendColumns = [GridItem(.adaptive(minimum: 170), spacing: 10)]
+    @State private var showSocketNumbers = false
+
+    private let summaryColumns = [GridItem(.adaptive(minimum: 220), spacing: 12)]
+
     // Calibrated for the bundled v5_brain.png asset (265x190).
     private let topPortX: [CGFloat] = [0.162, 0.225, 0.289, 0.351, 0.414, 0.508, 0.571, 0.634, 0.697, 0.760]
     private let bottomPortX: [CGFloat] = [0.162, 0.225, 0.289, 0.351, 0.414, 0.508, 0.571, 0.634, 0.697, 0.760]
@@ -12,110 +15,161 @@ struct PortMapView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 22) {
                 PanelTitle(text: "Port Map", icon: "slider.horizontal.3")
 
                 Card {
-                    Text("V5 Brain Map")
-                        .font(.system(size: 22, weight: .semibold, design: .rounded))
-                        .foregroundColor(Theme.text)
+                    HStack(alignment: .center, spacing: 12) {
+                        Text("V5 Brain Overview")
+                            .font(.system(size: 34, weight: .bold, design: .rounded))
+                            .foregroundColor(Theme.text)
+                        Spacer()
+                        Toggle("Socket numbers", isOn: $showSocketNumbers)
+                            .font(.system(size: 19, weight: .semibold, design: .rounded))
+                            .tint(Theme.accent)
+                    }
+
+                    if !duplicatePorts.isEmpty {
+                        Text("Port conflict: \(duplicatePorts.map { String($0) }.joined(separator: ", ")) are assigned to multiple devices.")
+                            .font(.system(size: 17, weight: .semibold, design: .rounded))
+                            .foregroundColor(Color(hex: 0xFFB17A))
+                    }
+
                     if let image = loadBrainImage() {
                         brainOverlay(for: image)
                     } else {
-                        Text("Add v5_brain.png to Tahera resources to display the brain map.")
+                        Text("v5_brain.png was not found in Tahera resources.")
                             .foregroundColor(Theme.subtext)
-                            .font(.system(size: 16, weight: .medium))
+                            .font(.system(size: 19, weight: .medium))
                     }
-                }
 
-                Card {
-                    Text("Live Port Legend")
-                        .font(.system(size: 22, weight: .semibold, design: .rounded))
-                        .foregroundColor(Theme.text)
-                    LazyVGrid(columns: legendColumns, spacing: 10) {
+                    LazyVGrid(columns: summaryColumns, spacing: 10) {
                         ForEach(assignments) { assignment in
-                            HStack(spacing: 8) {
-                                Circle()
-                                    .fill(assignment.color)
-                                    .frame(width: 11, height: 11)
-                                Text(assignment.short)
-                                    .font(.system(size: 13, weight: .bold, design: .rounded))
-                                    .foregroundColor(Theme.text)
-                                Text("P\(assignment.port) \(assignment.title)")
-                                    .font(.system(size: 13, weight: .medium))
-                                    .foregroundColor(Theme.subtext)
-                                Spacer(minLength: 0)
-                            }
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 8)
-                            .background(
-                                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .fill(Color.black.opacity(0.2))
-                            )
+                            assignmentChip(assignment)
                         }
                     }
                 }
 
                 Card {
-                    Text("Drive")
-                        .font(.system(size: 22, weight: .semibold, design: .rounded))
+                    Text("Edit Assignments")
+                        .font(.system(size: 34, weight: .bold, design: .rounded))
                         .foregroundColor(Theme.text)
-                    row("Left Outer 1", value: $model.portMap.leftOuter1.value, reversed: $model.portMap.leftOuter1.reversed)
-                    row("Left Outer 2", value: $model.portMap.leftOuter2.value, reversed: $model.portMap.leftOuter2.reversed)
-                    row("Left Middle", value: $model.portMap.leftMiddle.value, reversed: $model.portMap.leftMiddle.reversed)
-                    row("Right Outer 1", value: $model.portMap.rightOuter1.value, reversed: $model.portMap.rightOuter1.reversed)
-                    row("Right Outer 2", value: $model.portMap.rightOuter2.value, reversed: $model.portMap.rightOuter2.reversed)
-                    row("Right Middle", value: $model.portMap.rightMiddle.value, reversed: $model.portMap.rightMiddle.reversed)
-                }
 
-                Card {
-                    Text("Intake / Sensors")
-                        .font(.system(size: 22, weight: .semibold, design: .rounded))
-                        .foregroundColor(Theme.text)
-                    row("Intake Left", value: $model.portMap.intakeLeft.value, reversed: $model.portMap.intakeLeft.reversed)
-                    row("Intake Right", value: $model.portMap.intakeRight.value, reversed: $model.portMap.intakeRight.reversed)
+                    HStack(alignment: .top, spacing: 14) {
+                        groupedCard(title: "Left Drive") {
+                            assignmentRow("Left Outer 1", value: $model.portMap.leftOuter1.value, reversed: $model.portMap.leftOuter1.reversed)
+                            assignmentRow("Left Outer 2", value: $model.portMap.leftOuter2.value, reversed: $model.portMap.leftOuter2.reversed)
+                            assignmentRow("Left Middle", value: $model.portMap.leftMiddle.value, reversed: $model.portMap.leftMiddle.reversed)
+                        }
 
-                    HStack {
-                        Text("IMU").foregroundColor(Theme.subtext)
-                            .font(.system(size: 16, weight: .medium))
-                        Spacer()
-                        Stepper("\(model.portMap.imu)", value: $model.portMap.imu, in: 1...21)
-                            .font(.system(size: 15, weight: .semibold))
+                        groupedCard(title: "Right Drive") {
+                            assignmentRow("Right Outer 1", value: $model.portMap.rightOuter1.value, reversed: $model.portMap.rightOuter1.reversed)
+                            assignmentRow("Right Outer 2", value: $model.portMap.rightOuter2.value, reversed: $model.portMap.rightOuter2.reversed)
+                            assignmentRow("Right Middle", value: $model.portMap.rightMiddle.value, reversed: $model.portMap.rightMiddle.reversed)
+                        }
                     }
-                    HStack {
-                        Text("GPS").foregroundColor(Theme.subtext)
-                            .font(.system(size: 16, weight: .medium))
-                        Spacer()
-                        Stepper("\(model.portMap.gps)", value: $model.portMap.gps, in: 1...21)
-                            .font(.system(size: 15, weight: .semibold))
-                    }
-                }
 
-                Card {
-                    Text("Apply")
-                        .font(.system(size: 22, weight: .semibold, design: .rounded))
-                        .foregroundColor(Theme.text)
-                    Text("Port changes are staged in-app. Use repository settings to commit/push when needed.")
+                    groupedCard(title: "Mechanisms") {
+                        assignmentRow("Intake", value: $model.portMap.intakeLeft.value, reversed: $model.portMap.intakeLeft.reversed)
+                        assignmentRow("Outake", value: $model.portMap.intakeRight.value, reversed: $model.portMap.intakeRight.reversed)
+                    }
+
+                    groupedCard(title: "Sensors") {
+                        sensorRow("IMU", value: $model.portMap.imu)
+                        sensorRow("GPS", value: $model.portMap.gps)
+                    }
+
+                    Text("These values are applied to Tahera and Auton Planner during build/upload.")
                         .foregroundColor(Theme.subtext)
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.system(size: 18, weight: .medium))
+                        .padding(.top, 4)
                 }
             }
+            .buttonStyle(TaheraActionButtonStyle())
         }
     }
 
     @ViewBuilder
-    private func row(_ name: String, value: Binding<Int>, reversed: Binding<Bool>) -> some View {
-        HStack {
+    private func groupedCard<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.system(size: 24, weight: .semibold, design: .rounded))
+                .foregroundColor(Theme.text)
+
+            VStack(alignment: .leading, spacing: 8) {
+                content()
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color.black.opacity(0.16))
+        )
+    }
+
+    @ViewBuilder
+    private func assignmentChip(_ assignment: PortAssignment) -> some View {
+        HStack(spacing: 10) {
+            Circle()
+                .fill(assignment.color)
+                .frame(width: 14, height: 14)
+            Text("P\(assignment.port)")
+                .font(.system(size: 17, weight: .bold, design: .rounded))
+                .foregroundColor(Theme.text)
+            Text(assignment.title)
+                .font(.system(size: 17, weight: .medium, design: .rounded))
+                .foregroundColor(Theme.subtext)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.black.opacity(0.22))
+        )
+    }
+
+    @ViewBuilder
+    private func assignmentRow(_ name: String, value: Binding<Int>, reversed: Binding<Bool>) -> some View {
+        HStack(spacing: 14) {
             Text(name)
                 .foregroundColor(Theme.subtext)
-                .font(.system(size: 16, weight: .medium))
+                .font(.system(size: 20, weight: .semibold, design: .rounded))
             Spacer()
-            Toggle("Rev", isOn: reversed)
-                .labelsHidden()
-            Stepper("\(value.wrappedValue)", value: value, in: 1...21)
-                .frame(width: 120)
-                .font(.system(size: 15, weight: .semibold))
+            Stepper("P\(value.wrappedValue)", value: value, in: 1...21)
+                .frame(width: 165)
+                .font(.system(size: 19, weight: .bold, design: .rounded))
+            Toggle("Reverse", isOn: reversed)
+                .font(.system(size: 17, weight: .semibold, design: .rounded))
+                .tint(Theme.accent)
+                .fixedSize()
         }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color.black.opacity(0.14))
+        )
+    }
+
+    @ViewBuilder
+    private func sensorRow(_ name: String, value: Binding<Int>) -> some View {
+        HStack(spacing: 14) {
+            Text(name)
+                .foregroundColor(Theme.subtext)
+                .font(.system(size: 20, weight: .semibold, design: .rounded))
+            Spacer()
+            Stepper("P\(value.wrappedValue)", value: value, in: 1...21)
+                .frame(width: 165)
+                .font(.system(size: 19, weight: .bold, design: .rounded))
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color.black.opacity(0.14))
+        )
     }
 
     private func loadBrainImage() -> NSImage? {
@@ -134,29 +188,33 @@ struct PortMapView: View {
             GeometryReader { proxy in
                 let size = proxy.size
                 ZStack {
-                    ForEach(1...20, id: \.self) { port in
-                        let anchor = socketPoint(for: port, in: size)
-                        Text("\(port)")
-                            .font(.system(size: 9, weight: .bold, design: .rounded))
-                            .foregroundColor(Theme.text.opacity(0.9))
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 2)
-                            .background(
-                                Capsule(style: .continuous)
-                                    .fill(Color.black.opacity(0.35))
-                            )
-                            .position(anchor)
+                    if showSocketNumbers {
+                        ForEach(1...20, id: \.self) { port in
+                            let anchor = socketPoint(for: port, in: size)
+                            Text("\(port)")
+                                .font(.system(size: 13, weight: .bold, design: .rounded))
+                                .foregroundColor(Theme.text.opacity(0.95))
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 3)
+                                .background(
+                                    Capsule(style: .continuous)
+                                        .fill(Color.black.opacity(0.46))
+                                )
+                                .position(anchor)
+                        }
                     }
 
                     ForEach(assignmentsByPort.keys.sorted(), id: \.self) { port in
-                        if let portAssignments = assignmentsByPort[port] {
-                            ForEach(Array(portAssignments.enumerated()), id: \.element.id) { index, assignment in
+                        if let grouped = assignmentsByPort[port] {
+                            ForEach(Array(grouped.enumerated()), id: \.element.id) { index, assignment in
+                                let anchor = socketPoint(for: port, in: size)
+                                let offset = markerOffset(index: index, total: grouped.count)
                                 assignmentMarker(
                                     assignment: assignment,
-                                    index: index,
-                                    groupCount: portAssignments.count,
-                                    anchor: socketPoint(for: port, in: size),
-                                    canvasSize: size
+                                    center: CGPoint(
+                                        x: anchor.x + offset.width,
+                                        y: anchor.y + offset.height
+                                    )
                                 )
                             }
                         }
@@ -166,62 +224,37 @@ struct PortMapView: View {
             .allowsHitTesting(false)
         }
         .aspectRatio(max(image.size.width / max(image.size.height, 1), 0.1), contentMode: .fit)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Color.white.opacity(0.14), lineWidth: 1)
         )
     }
 
     @ViewBuilder
-    private func assignmentMarker(
-        assignment: PortAssignment,
-        index: Int,
-        groupCount: Int,
-        anchor: CGPoint,
-        canvasSize: CGSize
-    ) -> some View {
-        let centerOffset = CGFloat(index) - CGFloat(groupCount - 1) / 2.0
-        let horizontalSpread = centerOffset * max(48, canvasSize.width * 0.095)
-        let isTopRow = assignment.port <= 10
-        let verticalOffset = max(34, canvasSize.height * 0.11)
-        let badgePoint = CGPoint(
-            x: anchor.x + horizontalSpread,
-            y: anchor.y + (isTopRow ? verticalOffset : -verticalOffset)
-        )
-        let connectorY = badgePoint.y + (isTopRow ? -14 : 14)
+    private func assignmentMarker(assignment: PortAssignment, center: CGPoint) -> some View {
+        ZStack {
+            Circle()
+                .fill(assignment.color)
+                .frame(width: 30, height: 30)
+                .overlay(
+                    Circle()
+                        .stroke(Color.white.opacity(0.78), lineWidth: 1.2)
+                )
+                .shadow(color: assignment.color.opacity(0.45), radius: 7, x: 0, y: 3)
 
-        Path { path in
-            path.move(to: anchor)
-            path.addLine(to: CGPoint(x: badgePoint.x, y: connectorY))
-        }
-        .stroke(assignment.color.opacity(0.95), style: StrokeStyle(lineWidth: 1.2, dash: [3, 3]))
-
-        Circle()
-            .fill(assignment.color)
-            .frame(width: 8, height: 8)
-            .position(anchor)
-
-        HStack(spacing: 6) {
             Text(assignment.short)
-                .font(.system(size: 10, weight: .bold, design: .rounded))
-                .foregroundColor(Theme.text)
-            Text("P\(assignment.port)")
-                .font(.system(size: 9, weight: .semibold, design: .rounded))
-                .foregroundColor(Theme.text.opacity(0.9))
+                .font(.system(size: assignment.short.count > 2 ? 9.0 : 11.0, weight: .black, design: .rounded))
+                .foregroundColor(Color.black.opacity(0.78))
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 5)
-        .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color.black.opacity(0.65))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(assignment.color.opacity(0.9), lineWidth: 1)
-        )
-        .shadow(color: assignment.color.opacity(0.45), radius: 8, x: 0, y: 3)
-        .position(badgePoint)
+        .position(center)
+    }
+
+    private func markerOffset(index: Int, total: Int) -> CGSize {
+        guard total > 1 else { return .zero }
+        let radius: CGFloat = total == 2 ? 18 : 24
+        let angle = (Double(index) / Double(total)) * (.pi * 2.0) - (.pi / 2.0)
+        return CGSize(width: CGFloat(cos(angle)) * radius, height: CGFloat(sin(angle)) * radius)
     }
 
     private func socketPoint(for port: Int, in size: CGSize) -> CGPoint {
@@ -230,13 +263,18 @@ struct PortMapView: View {
         let isTop = clampedPort <= 10
         let xRatio = (isTop ? topPortX : bottomPortX)[index]
         let yRatio = isTop ? topPortY : bottomPortY
-        let x = size.width * xRatio
-        let y = size.height * yRatio
-        return CGPoint(x: x, y: y)
+        return CGPoint(x: size.width * xRatio, y: size.height * yRatio)
     }
 
     private var assignmentsByPort: [Int: [PortAssignment]] {
         Dictionary(grouping: assignments, by: \.port)
+    }
+
+    private var duplicatePorts: [Int] {
+        assignmentsByPort
+            .filter { $0.value.count > 1 }
+            .map(\.key)
+            .sorted()
     }
 
     private var assignments: [PortAssignment] {
@@ -247,8 +285,8 @@ struct PortMapView: View {
             PortAssignment(id: "R1", short: "R1", title: "Right Outer 1", port: model.portMap.rightOuter1.value, color: Color(hex: 0x7BFF9E)),
             PortAssignment(id: "R2", short: "R2", title: "Right Outer 2", port: model.portMap.rightOuter2.value, color: Color(hex: 0x9BFF83)),
             PortAssignment(id: "RM", short: "RM", title: "Right Middle", port: model.portMap.rightMiddle.value, color: Color(hex: 0xC5FF7A)),
-            PortAssignment(id: "IN", short: "IN", title: "Intake Left", port: model.portMap.intakeLeft.value, color: Color(hex: 0xFFCA6F)),
-            PortAssignment(id: "OUT", short: "OUT", title: "Intake Right", port: model.portMap.intakeRight.value, color: Color(hex: 0xFFA76A)),
+            PortAssignment(id: "IN", short: "IN", title: "Intake", port: model.portMap.intakeLeft.value, color: Color(hex: 0xFFCA6F)),
+            PortAssignment(id: "OUT", short: "OUT", title: "Outake", port: model.portMap.intakeRight.value, color: Color(hex: 0xFFA76A)),
             PortAssignment(id: "IMU", short: "IMU", title: "Inertial Sensor", port: model.portMap.imu, color: Color(hex: 0xD4C2FF)),
             PortAssignment(id: "GPS", short: "GPS", title: "GPS Sensor", port: model.portMap.gps, color: Color(hex: 0xFFC1EA))
         ]

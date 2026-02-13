@@ -35,7 +35,7 @@ struct Card<Content: View>: View {
         VStack(alignment: .leading, spacing: 12) {
             content
         }
-        .padding(22)
+        .padding(26)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Theme.card)
         .cornerRadius(18)
@@ -54,11 +54,11 @@ struct PanelTitle: View {
     var body: some View {
         Label {
             Text(text)
-                .font(.system(size: 36, weight: .bold, design: .rounded))
+                .font(.system(size: 40, weight: .bold, design: .rounded))
                 .foregroundColor(Theme.text)
         } icon: {
             Image(systemName: icon)
-                .font(.system(size: 30, weight: .bold))
+                .font(.system(size: 34, weight: .bold))
                 .foregroundStyle(Theme.accent, Theme.accentMuted)
                 .symbolRenderingMode(.palette)
         }
@@ -69,10 +69,10 @@ struct PanelTitle: View {
 struct TaheraActionButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 15, weight: .semibold, design: .rounded))
+            .font(.system(size: 17, weight: .semibold, design: .rounded))
             .foregroundColor(Theme.text)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
+            .padding(.horizontal, 18)
+            .padding(.vertical, 12)
             .background(
                 LinearGradient(
                     gradient: Gradient(colors: [Theme.accentMuted, Theme.accent]),
