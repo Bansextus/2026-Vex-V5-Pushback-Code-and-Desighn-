@@ -10,7 +10,7 @@
 
     <Border Grid.Column="0" Background="#14263A" Padding="12">
       <StackPanel>
-        <TextBlock Text="TAHERA" Foreground="{StaticResource TextBrush}" FontSize="24" FontWeight="Bold" Margin="8,8,8,18"/>
+        <TextBlock Text="Tahera" Foreground="{StaticResource TextBrush}" FontSize="24" FontWeight="Bold" Margin="8,8,8,18"/>
 
         <Button Content="Home" Tag="Home" Click="SectionButton_Click" Margin="0,0,0,8"/>
         <Button Content="Build & Upload" Tag="Build" Click="SectionButton_Click" Margin="0,0,0,8"/>
