@@ -924,27 +924,27 @@ void opcontrol() {
 
         drive_set(left_cmd, right_cmd);
 
-        // --- INTAKE CONTROL (L1/L2) ---
+        // --- LEFT SIDE INTAKE + OUTTAKE (L1/L2) ---
         if (master.get_digital(DIGITAL_L1)) {
             intake_left.move(127);
-            intake_right.move(127);
+            outtake_left.move(127);
         } else if (master.get_digital(DIGITAL_L2)) {
             intake_left.move(-127);
-            intake_right.move(-127);
+            outtake_left.move(-127);
         } else {
             intake_left.brake();
-            intake_right.brake();
+            outtake_left.brake();
         }
 
-        // --- OUTTAKE CONTROL (R1/R2) ---
+        // --- RIGHT SIDE INTAKE + OUTTAKE (R1/R2) ---
         if (master.get_digital(DIGITAL_R1)) {
-            outtake_left.move(127);
+            intake_right.move(127);
             outtake_right.move(127);
         } else if (master.get_digital(DIGITAL_R2)) {
-            outtake_left.move(-127);
+            intake_right.move(-127);
             outtake_right.move(-127);
         } else {
-            outtake_left.brake();
+            intake_right.brake();
             outtake_right.brake();
         }
 
