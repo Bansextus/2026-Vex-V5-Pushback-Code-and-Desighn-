@@ -6,13 +6,12 @@ struct SDCardView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("SD Card")
-                .font(.system(size: 28, weight: .bold, design: .rounded))
-                .foregroundColor(Theme.text)
+            PanelTitle(text: "SD Card", icon: "externaldrive.fill")
 
             Card {
                 Text(model.sdMounted ? "Mounted: \(model.sdPath)" : "Not mounted")
                     .foregroundColor(Theme.subtext)
+                    .font(.system(size: 17, weight: .medium))
                 HStack {
                     Button("Refresh") { model.refreshSDStatus() }
                     Button("Open SD") {
@@ -21,6 +20,7 @@ struct SDCardView: View {
                 }
             }
         }
+        .buttonStyle(TaheraActionButtonStyle())
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }

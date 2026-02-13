@@ -6,9 +6,29 @@ enum AppSection: String, CaseIterable, Identifiable {
     case portMap = "Port Map"
     case sdCard = "SD Card"
     case field = "Field Replay"
+    case readme = "README"
     case github = "Repository Settings"
 
     var id: String { rawValue }
+
+    var symbolName: String {
+        switch self {
+        case .home:
+            return "house.fill"
+        case .build:
+            return "hammer.fill"
+        case .portMap:
+            return "point.3.connected.trianglepath.dotted"
+        case .sdCard:
+            return "sdcard.fill"
+        case .field:
+            return "map.fill"
+        case .readme:
+            return "book.closed.fill"
+        case .github:
+            return "lock.shield.fill"
+        }
+    }
 }
 
 struct ProsProject: Identifiable {

@@ -5,9 +5,7 @@ struct GitHubView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Repository Settings")
-                .font(.system(size: 28, weight: .bold, design: .rounded))
-                .foregroundColor(Theme.text)
+            PanelTitle(text: "Repository Settings", icon: "checkmark.shield.fill")
 
             if model.repoSettingsUnlocked {
                 unlockedView
@@ -15,16 +13,18 @@ struct GitHubView: View {
                 lockedView
             }
         }
+        .buttonStyle(TaheraActionButtonStyle())
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     private var lockedView: some View {
         Card {
             Text("Locked")
-                .font(.headline)
+                .font(.system(size: 22, weight: .semibold, design: .rounded))
                 .foregroundColor(Theme.text)
             Text("Enter the password to access repository settings.")
                 .foregroundColor(Theme.subtext)
+                .font(.system(size: 16, weight: .medium))
             SecureField("Password", text: $model.repoSettingsPasswordInput)
                 .textFieldStyle(.roundedBorder)
                 .frame(maxWidth: 320)
@@ -42,7 +42,7 @@ struct GitHubView: View {
         VStack(alignment: .leading, spacing: 14) {
             Card {
                 Text("Git Commit & Push")
-                    .font(.headline)
+                    .font(.system(size: 22, weight: .semibold, design: .rounded))
                     .foregroundColor(Theme.text)
                 TextField("Commit message", text: $model.gitCommitMessage)
                     .textFieldStyle(.roundedBorder)
@@ -54,7 +54,7 @@ struct GitHubView: View {
 
             Card {
                 Text("Tag + Release")
-                    .font(.headline)
+                    .font(.system(size: 22, weight: .semibold, design: .rounded))
                     .foregroundColor(Theme.text)
                 TextField("Tag", text: $model.gitTag)
                     .textFieldStyle(.roundedBorder)

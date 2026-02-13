@@ -6,6 +6,7 @@ final class TaheraModel: ObservableObject {
     @Published var repoPath: String = "/Users/lorenzodiiorio/Documents/GitHub/2026-Vex-V5-Pushback-Code-and-Desighn-"
     @Published var outputLog: String = ""
     @Published var isBusy: Bool = false
+    @Published var readmeContent: String = ""
 
     @Published var projects: [ProsProject] = [
         ProsProject(name: "The Tahera Sequence", relativePath: "Pros projects/Tahera_Project", slot: 1),
@@ -38,10 +39,12 @@ final class TaheraModel: ObservableObject {
     init() {
         refreshSDStatus()
         refreshBrainStatus()
+        loadReadme()
     }
 
     func unlockRepositorySettings() {
-        if repoSettingsPasswordInput == repoSettingsPassword {
+        let entered = repoSettingsPasswordInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        if entered == repoSettingsPassword {
             repoSettingsUnlocked = true
             repoSettingsAuthError = ""
             repoSettingsPasswordInput = ""
@@ -175,5 +178,19 @@ final class TaheraModel: ObservableObject {
         guard !t.isEmpty else { return }
         let title = gitReleaseTitle.isEmpty ? t : gitReleaseTitle
         runCommand(["/usr/bin/env", "gh", "release", "create", t, "--title", title, "--notes", gitReleaseNotes], cwd: repoPath, label: "gh release create")
+    }
+
+    func loadReadme() {
+        let readmePath = URL(fileURLWithPath: repoPath).appendingPathComponent("README.md").path
+        do {
+            let contents = try String(contentsOfFile: readmePath, encoding: .utf8)
+            DispatchQueue.main.async {
+                self.readmeContent = contents
+            }
+        } catch {
+            DispatchQueue.main.async {
+                self.readmeContent = "README.md could not be loaded from:\n\(readmePath)\n\n\(error.localizedDescription)"
+            }
+        }
     }
 }

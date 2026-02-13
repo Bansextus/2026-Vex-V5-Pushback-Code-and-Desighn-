@@ -8,6 +8,7 @@ enum Theme {
     )
 
     static let card = Color(hex: 0x13253A).opacity(0.92)
+    static let cardBorder = Color.white.opacity(0.14)
     static let accent = Color(hex: 0x4CD7A8)
     static let accentMuted = Color(hex: 0x2B6C8A)
     static let text = Color(hex: 0xE7EEF7)
@@ -34,9 +35,58 @@ struct Card<Content: View>: View {
         VStack(alignment: .leading, spacing: 12) {
             content
         }
-        .padding(18)
+        .padding(22)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Theme.card)
-        .cornerRadius(14)
+        .cornerRadius(18)
+        .overlay(
+            RoundedRectangle(cornerRadius: 18)
+                .stroke(Theme.cardBorder, lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.3), radius: 14, x: 0, y: 8)
+    }
+}
+
+struct PanelTitle: View {
+    let text: String
+    let icon: String
+
+    var body: some View {
+        Label {
+            Text(text)
+                .font(.system(size: 36, weight: .bold, design: .rounded))
+                .foregroundColor(Theme.text)
+        } icon: {
+            Image(systemName: icon)
+                .font(.system(size: 30, weight: .bold))
+                .foregroundStyle(Theme.accent, Theme.accentMuted)
+                .symbolRenderingMode(.palette)
+        }
+        .labelStyle(.titleAndIcon)
+    }
+}
+
+struct TaheraActionButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 15, weight: .semibold, design: .rounded))
+            .foregroundColor(Theme.text)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(
+                LinearGradient(
+                    gradient: Gradient(colors: [Theme.accentMuted, Theme.accent]),
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .opacity(configuration.isPressed ? 0.82 : 1.0)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color.white.opacity(0.22), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
+            .shadow(color: Theme.accent.opacity(0.26), radius: 10, x: 0, y: 5)
     }
 }

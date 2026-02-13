@@ -17,6 +17,7 @@
         <Button Content="Port Map" Tag="Port" Click="SectionButton_Click" Margin="0,0,0,8"/>
         <Button Content="SD Card" Tag="Sd" Click="SectionButton_Click" Margin="0,0,0,8"/>
         <Button Content="Field Replay" Tag="Field" Click="SectionButton_Click" Margin="0,0,0,8"/>
+        <Button Content="README" Tag="Readme" Click="SectionButton_Click" Margin="0,0,0,8"/>
         <Button Content="Repository Settings" Tag="Git" Click="SectionButton_Click" Margin="0,0,0,8"/>
       </StackPanel>
     </Border>
@@ -76,10 +77,53 @@
       </Grid>
 
       <Grid x:Name="FieldPanel" Visibility="Collapsed">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <StackPanel>
+            <TextBlock Text="Field Replay" Foreground="{StaticResource TextBrush}" FontSize="28" FontWeight="Bold"/>
+            <Border Background="{StaticResource CardBrush}" Padding="14" CornerRadius="10" Margin="0,14,0,0">
+              <StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                  <Button Content="Open Replay File" Click="OpenReplayFile_Click" Margin="0,0,8,0"/>
+                  <Button Content="Clear" Click="ClearReplay_Click" Margin="0,0,10,0"/>
+                  <TextBlock x:Name="ReplayFileText" Foreground="{StaticResource SubBrush}" VerticalAlignment="Center" Text="No replay file loaded"/>
+                </StackPanel>
+
+                <Border BorderBrush="#22FFFFFF" BorderThickness="1" CornerRadius="8" Background="#14000000">
+                  <Grid Height="420">
+                    <Image x:Name="FieldImage" Stretch="Fill"/>
+                    <Canvas x:Name="FieldOverlay" IsHitTestVisible="False" SizeChanged="FieldOverlay_SizeChanged"/>
+                  </Grid>
+                </Border>
+
+                <TextBlock Text="Frame" Foreground="{StaticResource SubBrush}" Margin="0,12,0,4"/>
+                <Slider x:Name="ReplaySlider" Minimum="0" Maximum="0" Value="0" ValueChanged="ReplaySlider_ValueChanged"/>
+                <TextBlock x:Name="ReplayReadoutText" Foreground="{StaticResource SubBrush}" FontFamily="Consolas" Margin="0,12,0,0" TextWrapping="Wrap"/>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </ScrollViewer>
+      </Grid>
+
+      <Grid x:Name="ReadmePanel" Visibility="Collapsed">
         <StackPanel>
-          <TextBlock Text="Field Replay" Foreground="{StaticResource TextBrush}" FontSize="28" FontWeight="Bold"/>
+          <TextBlock Text="README" Foreground="{StaticResource TextBrush}" FontSize="28" FontWeight="Bold"/>
           <Border Background="{StaticResource CardBrush}" Padding="14" CornerRadius="10" Margin="0,14,0,0">
-            <TextBlock Text="Replay panel placeholder in rebuild. Parsing and drawing can be restored on top of this frame." Foreground="{StaticResource SubBrush}" TextWrapping="Wrap"/>
+            <StackPanel>
+              <StackPanel Orientation="Horizontal">
+                <Image x:Name="ReadmeLogoImage" Width="64" Height="64" Stretch="Uniform" Margin="0,0,14,0"/>
+                <StackPanel>
+                  <TextBlock Text="Tahera Project Readme" Foreground="{StaticResource TextBrush}" FontSize="20" FontWeight="Bold"/>
+                  <TextBlock Text="Loaded from README.md in your repository." Foreground="{StaticResource SubBrush}" Margin="0,4,0,0"/>
+                </StackPanel>
+              </StackPanel>
+
+              <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                <Button Content="Refresh README" Click="ReadmeRefresh_Click" Margin="0,0,8,0"/>
+                <Button Content="Open README File" Click="OpenReadmeFile_Click"/>
+              </StackPanel>
+
+              <TextBox x:Name="ReadmeTextBox" Margin="0,12,0,0" Height="460" AcceptsReturn="True" IsReadOnly="True" VerticalScrollBarVisibility="Auto" TextWrapping="Wrap"/>
+            </StackPanel>
           </Border>
         </StackPanel>
       </Grid>

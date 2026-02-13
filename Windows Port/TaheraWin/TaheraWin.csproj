@@ -8,4 +8,13 @@
     <AssemblyName>Tahera</AssemblyName>
     <RootNamespace>Tahera</RootNamespace>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\Mac Aplications\Tahera\Sources\Tahera\Resources\field.png" Link="Resources\field.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\Mac Aplications\Tahera\Sources\Tahera\Resources\tahera_logo.png" Link="Resources\tahera_logo.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
 </Project>

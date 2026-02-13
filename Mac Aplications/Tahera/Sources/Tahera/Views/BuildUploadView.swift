@@ -6,19 +6,18 @@ struct BuildUploadView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text("Build & Upload")
-                    .font(.system(size: 28, weight: .bold, design: .rounded))
-                    .foregroundColor(Theme.text)
+                PanelTitle(text: "Build & Upload", icon: "gearshape.2.fill")
 
                 ForEach(model.projects.indices, id: \.self) { idx in
                     Card {
                         HStack {
                             Text(model.projects[idx].name)
                                 .foregroundColor(Theme.text)
-                                .font(.headline)
+                                .font(.system(size: 21, weight: .semibold, design: .rounded))
                             Spacer()
                             Stepper("Slot \(model.projects[idx].slot)", value: $model.projects[idx].slot, in: 1...8)
                                 .foregroundColor(Theme.subtext)
+                                .font(.system(size: 15, weight: .semibold))
                         }
 
                         HStack {
@@ -29,6 +28,7 @@ struct BuildUploadView: View {
                     }
                 }
             }
+            .buttonStyle(TaheraActionButtonStyle())
         }
     }
 }
